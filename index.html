@@ -214,6 +214,8 @@ tr:hover td{background:var(--ol)}
         <button class="btn bsm bs" onclick="forcSync()">↓ Sincronizar</button>
         <button class="btn bsm bs" onclick="expXls()">📊 Excel</button>
         <button class="btn bsm bs" onclick="expPdf()">📄 PDF</button>
+        <button class="btn bsm bd" onclick="clearByStatus('Aprovado')" title="Apagar todos os aprovados">🗑 Limpar Aprovados</button>
+        <button class="btn bsm bd" onclick="clearByStatus('Rejeitado')" title="Apagar todos os rejeitados">🗑 Limpar Rejeitados</button>
       </div>
     </div>
     <div id="req-list" class="rl_"></div>
@@ -524,6 +526,16 @@ async function delReq(id) {
   saveReqs(getReqs().filter(r => r.id !== id));
   renderStats(); renderReqs(); updatePC();
   toast('Pedido eliminado.', '');
+}
+
+function clearByStatus(status) {
+  const reqs = getReqs();
+  const toDelete = reqs.filter(r => r.status === status);
+  if (!toDelete.length) { toast('Não há pedidos ' + status.toLowerCase() + 's para apagar.', ''); return; }
+  if (!confirm('Apagar ' + toDelete.length + ' pedido(s) com estado "' + status + '"?\nEsta acção não pode ser desfeita.')) return;
+  saveReqs(reqs.filter(r => r.status !== status));
+  renderStats(); renderReqs(); updatePC();
+  toast('🗑 ' + toDelete.length + ' pedido(s) ' + status.toLowerCase() + '(s) eliminado(s).', 'success');
 }
 
 // ── ATRIBUIÇÃO ──
