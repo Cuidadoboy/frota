@@ -379,6 +379,12 @@ const LS = {
 
 function getReqs() { return LS.g('aea_reqs_v1') || []; }
 function saveReqs(r) { LS.s('aea_reqs_v1', r); }
+function getDeleted() { return new Set(LS.g('aea_deleted_v1') || []); }
+function addDeleted(ids) {
+  const d = getDeleted();
+  (Array.isArray(ids) ? ids : [ids]).forEach(id => d.add(id));
+  LS.s('aea_deleted_v1', [...d]);
+}
 function getFleet() { return LS.g('aea_fleet_v1') || defFleet(); }
 function saveFleet(f) { LS.s('aea_fleet_v1', f); }
 
@@ -411,9 +417,11 @@ async function pullFromCloud() {
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     if (Array.isArray(data) && data.length > 0) {
-      saveReqs(data);
-      setSyncBadge('synced', '☁ ' + data.length + ' pedidos');
-      return data;
+      const deleted = getDeleted();
+      const filtered = data.filter(r => !deleted.has(r.id));
+      saveReqs(filtered);
+      setSyncBadge('synced', '☁ ' + filtered.length + ' pedidos');
+      return filtered;
     }
     setSyncBadge('synced', '☁ ' + getReqs().length + ' pedidos');
     return null;
@@ -577,7 +585,9 @@ function updatePC() {
 
 async function delReq(id) {
   if (!confirm('Eliminar pedido ' + id + '?')) return;
+  addDeleted(id);
   saveReqs(getReqs().filter(r => r.id !== id));
+  pushReq({ id }, 'deleteOne');
   renderStats(); renderReqs(); updatePC();
   toast('Pedido eliminado.', '');
 }
@@ -672,7 +682,10 @@ function clearByStatus(status) {
   const toDelete = reqs.filter(r => r.status === status);
   if (!toDelete.length) { toast('Não há pedidos ' + status.toLowerCase() + 's para apagar.', ''); return; }
   if (!confirm('Apagar ' + toDelete.length + ' pedido(s) com estado "' + status + '"?\nEsta acção não pode ser desfeita.')) return;
+  const ids = toDelete.map(r => r.id);
+  addDeleted(ids);
   saveReqs(reqs.filter(r => r.status !== status));
+  ids.forEach(id => pushReq({ id }, 'deleteOne'));
   renderStats(); renderReqs(); updatePC();
   toast('🗑 ' + toDelete.length + ' pedido(s) ' + status.toLowerCase() + '(s) eliminado(s).', 'success');
 }
