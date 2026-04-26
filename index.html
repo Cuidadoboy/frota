@@ -161,6 +161,7 @@ tr:hover td{background:var(--ol)}
     <button class="nb mgr" id="nv-fleet" style="display:none" onclick="showView('fleet',this)">⚙ Frota</button>
     <button class="nb" id="nv-out" style="display:none;background:rgba(255,255,255,.15);color:#fff" onclick="logout()">Sair</button>
     <button class="nb" id="nv-in" onclick="openLogin()" style="border:1.5px solid rgba(255,255,255,.5);color:#fff">🔐 Gestor</button>
+    <button class="nb" id="btn-install" style="display:none;background:#fff;color:var(--od);font-weight:700;border-radius:8px" onclick="installApp()">⬇ Instalar App</button>
   </div>
   <div id="offline-badge">✈ Offline</div>
 </header>
@@ -822,6 +823,26 @@ setTimeout(async () => {
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+
+// ── INSTALAR APP (PWA) ──
+let deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstall = e;
+  document.getElementById('btn-install').style.display = '';
+});
+window.addEventListener('appinstalled', () => {
+  document.getElementById('btn-install').style.display = 'none';
+  toast('✔ App instalada com sucesso!', 'success');
+});
+function installApp() {
+  if (!deferredInstall) {
+    toast('Para instalar: no browser clica no menu e escolhe "Adicionar ao ecrã inicial"', '');
+    return;
+  }
+  deferredInstall.prompt();
+  deferredInstall.userChoice.then(() => { deferredInstall = null; });
 }
 </script>
 </body>
