@@ -1,5 +1,5 @@
-const CACHE = 'aea-frota-v5';
-const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
+const CACHE = 'aea-frota-v6';
+const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './logo1.png', './logo2.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => c.addAll(['./index.html']))));
@@ -12,8 +12,8 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  // Não fazer cache de pedidos ao Google Apps Script
-  if (e.request.url.includes('script.google.com')) return;
+  // Não fazer cache de pedidos ao Google Apps Script ou EmailJS
+  if (e.request.url.includes('script.google.com') || e.request.url.includes('emailjs.com') || e.request.url.includes('api.emailjs.com')) return fetch(e.request);
   e.respondWith(
     caches.match(e.request).then(cached => {
       if (cached) return cached;

@@ -506,9 +506,9 @@ function renderReqs() {
         '</div></div>' +
       '<div class="ra">' +
         '<span class="badge ' + bc + '">' + si + ' ' + r.status + '</span>' +
-        '<button class="btn bsm bp" onclick="openAssign('' + r.id + '')">🔧 Atribuir</button>' +
-        '<button class="btn bsm bs" onclick="expSingle('' + r.id + '')">📄</button>' +
-        '<button class="btn bsm bd" onclick="delReq('' + r.id + '')">✕</button>' +
+        '<button class="btn bsm bp" onclick="openAssign(\'' + r.id + '\')">🔧 Atribuir</button>' +
+        '<button class="btn bsm bs" onclick="expSingle(\'' + r.id + '\')">📄</button>' +
+        '<button class="btn bsm bd" onclick="delReq(\'' + r.id + '\')">✕</button>' +
       '</div></div>';
   }).join('');
 }
@@ -623,8 +623,8 @@ function renderFleet() {
     '<b>Contacto:</b> <span class="mono">' + (v.tel||'—') + '</span><br>' +
     '<b>Base:</b> ' + (v.base||'—') + '<br><b>Estado:</b> ' + v.estado + '</div>' +
     '<div style="margin-top:12px;display:flex;gap:8px">' +
-    '<button class="btn bsm bs" onclick="editFlV('' + v.id + '')">✎ Editar</button>' +
-    '<button class="btn bsm bd" onclick="delFlV('' + v.id + '')">✕</button></div></div>'
+    '<button class="btn bsm bs" onclick="editFlV(\'' + v.id + '\')">✎ Editar</button>' +
+    '<button class="btn bsm bd" onclick="delFlV(\'' + v.id + '\')">✕</button></div></div>'
   ).join('');
 }
 function openFleetMo() {
