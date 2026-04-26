@@ -156,6 +156,7 @@ tr:hover td{background:var(--ol)}
   <div class="hdr-nav" id="hdr-nav">
     <div id="sync-badge"><div class="dot"></div><span id="sync-label">A carregar...</span></div>
     <button class="nb" onclick="showView('form',this)">＋ Nova Requisição</button>
+    <button class="nb" onclick="showView('edit',this)">✏ Editar Pedido</button>
     <button class="nb mgr" id="nv-req" style="display:none" onclick="showView('requests',this)">Pedidos <span class="cb" id="pc">0</span></button>
     <button class="nb mgr" id="nv-plan" style="display:none" onclick="showView('plan',this)">Plano Semanal</button>
     <button class="nb mgr" id="nv-fleet" style="display:none" onclick="showView('fleet',this)">⚙ Frota</button>
@@ -246,7 +247,59 @@ tr:hover td{background:var(--ol)}
     <div class="fg_" id="fleet-grid"></div>
   </div>
 </div>
+<div class="view" id="view-edit">
+  <div class="hero">
+    <div><div class="hero-t">Editar Pedido</div><div class="hero-s">Pesquise pelo seu nome, email ou número do pedido</div></div>
+    <div class="hero-i">✏️</div>
+  </div>
+  <div class="card">
+    <div class="stit"><div class="sico">🔍</div>Procurar o meu pedido</div>
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+      <input id="edit-search" style="flex:1;min-width:220px" placeholder="Nome, email ou nº do pedido (ex: REQ-2026-001)" oninput="searchMyReqs()">
+      <button class="btn bp" onclick="searchMyReqs()">Procurar</button>
+    </div>
+    <div id="edit-results"></div>
+  </div>
+</div>
 </main>
+
+<div class="mo" id="mo-edit-req">
+  <div class="mb" style="max-width:680px">
+    <button class="mc" onclick="closeMo('mo-edit-req')">✕</button>
+    <div class="mt_">✏ Editar Requisição</div>
+    <input type="hidden" id="eq-id">
+    <div style="background:var(--ol);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12.5px;color:var(--od)">
+      ⚠️ Só é possível editar pedidos com estado <b>Pendente</b>. Após aprovação ou rejeição o pedido fica bloqueado.
+    </div>
+    <div class="stit" style="margin-top:0"><div class="sico">👤</div>Dados do Requisitante</div>
+    <div class="fg">
+      <div class="fi s2"><label>Nome completo *</label><input id="eq-nome" placeholder="Nome e apelido"></div>
+      <div class="fi"><label>Departamento / Projecto *</label><input id="eq-dep" placeholder="Ex: WASH, Protecção, Admin"></div>
+      <div class="fi"><label>Telefone *</label><input id="eq-tel" type="tel"></div>
+      <div class="fi s2"><label>Email</label><input id="eq-email" type="email"></div>
+    </div>
+    <div class="stit" style="margin-top:20px"><div class="sico">🚗</div>Detalhes da Viagem</div>
+    <div class="fg3">
+      <div class="fi"><label>Data da viagem *</label><input type="date" id="eq-data"></div>
+      <div class="fi"><label>Data de regresso</label><input type="date" id="eq-ret"></div>
+      <div class="fi"><label>Urgência</label><select id="eq-urg"><option>Normal</option><option>Urgente</option><option>Muito urgente</option></select></div>
+      <div class="fi"><label>Hora de saída *</label><input type="time" id="eq-hs"></div>
+      <div class="fi"><label>Hora de regresso</label><input type="time" id="eq-hr"></div>
+      <div class="fi"><label>Nº de dias *</label><input type="number" id="eq-dias" min="1" max="60"></div>
+      <div class="fi"><label>Nº de passageiros</label><input type="number" id="eq-npax" min="1" max="20"></div>
+      <div class="fi"><label>Local de partida *</label><select id="eq-part"><option>Escritório – Pemba</option><option>Escritório – Maputo</option><option>Escritório – Palma</option><option>Campo</option><option>Outro</option></select></div>
+      <div class="fi"><label>Projecto / Doador</label><input id="eq-proj"></div>
+      <div class="fi s3"><label>Destino *</label><input id="eq-dest"></div>
+      <div class="fi s3"><label>Nomes dos passageiros</label><input id="eq-pax"></div>
+      <div class="fi s3"><label>Motivo da viagem *</label><textarea id="eq-mot"></textarea></div>
+      <div class="fi s3"><label>Carga / material</label><input id="eq-car"></div>
+    </div>
+    <div class="br_">
+      <button class="btn bs" onclick="closeMo('mo-edit-req')">Cancelar</button>
+      <button class="btn bp" onclick="saveEditReq()">💾 Guardar Alterações</button>
+    </div>
+  </div>
+</div>
 
 <div class="mo" id="mo-assign">
   <div class="mb">
@@ -462,6 +515,7 @@ function showView(v, btn) {
   if (v === 'requests') { renderStats(); renderReqs(); forcSync(); }
   if (v === 'plan') renderPlan();
   if (v === 'fleet') renderFleet();
+  if (v === 'edit') { document.getElementById('edit-search').value=''; document.getElementById('edit-results').innerHTML=''; }
 }
 function showDirect(v) {
   document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
@@ -526,6 +580,91 @@ async function delReq(id) {
   saveReqs(getReqs().filter(r => r.id !== id));
   renderStats(); renderReqs(); updatePC();
   toast('Pedido eliminado.', '');
+}
+
+// ── EDITAR PEDIDO (requisitante) ──
+function searchMyReqs() {
+  const q = document.getElementById('edit-search').value.trim().toLowerCase();
+  const out = document.getElementById('edit-results');
+  if (!q) { out.innerHTML = ''; return; }
+  const found = getReqs().filter(r =>
+    r.nome.toLowerCase().includes(q) ||
+    (r.email && r.email.toLowerCase().includes(q)) ||
+    r.id.toLowerCase().includes(q)
+  );
+  if (!found.length) {
+    out.innerHTML = '<div class="es"><div class="em">🔍</div><p>Nenhum pedido encontrado. Verifique o nome ou número.</p></div>';
+    return;
+  }
+  out.innerHTML = found.slice().reverse().map(r => {
+    const isPendente = r.status === 'Pendente';
+    const bc = r.status==='Aprovado'?'bap':r.status==='Rejeitado'?'brj':'bpd';
+    const si = r.status==='Aprovado'?'✅':r.status==='Rejeitado'?'❌':'⏳';
+    return '<div class="ri ' + r.status.toLowerCase() + '" style="margin-bottom:12px">' +
+      '<div class="rm">' +
+        '<div class="rid">' + r.id + ' · ' + fmtD(r.created) + '</div>' +
+        '<div class="rt_">📍 ' + r.destino + '</div>' +
+        '<div class="rd">📅 ' + r.dataSaida + ' · 🕐 ' + r.horaSaida + ' · <span class="rc">' + r.dep + '</span></div>' +
+      '</div>' +
+      '<div class="ra">' +
+        '<span class="badge ' + bc + '">' + si + ' ' + r.status + '</span>' +
+        (isPendente
+          ? '<button class="btn bsm bp" onclick="openEditReq(\'' + r.id + '\')">✏ Editar</button>'
+          : '<span style="font-size:11px;color:var(--tl);padding:4px 8px">Pedido já processado — não editável</span>') +
+      '</div></div>';
+  }).join('');
+}
+
+function openEditReq(id) {
+  const r = getReqs().find(x => x.id === id);
+  if (!r || r.status !== 'Pendente') { toast('Este pedido já não pode ser editado.', 'error'); return; }
+  document.getElementById('eq-id').value = id;
+  document.getElementById('eq-nome').value = r.nome || '';
+  document.getElementById('eq-dep').value  = r.dep  || '';
+  document.getElementById('eq-tel').value  = r.tel  || '';
+  document.getElementById('eq-email').value = r.email || '';
+  document.getElementById('eq-data').value = r.dataSaida || '';
+  document.getElementById('eq-ret').value  = r.dataRegresso || '';
+  document.getElementById('eq-hs').value   = r.horaSaida || '08:00';
+  document.getElementById('eq-hr').value   = r.horaRegresso || '17:00';
+  document.getElementById('eq-dias').value = r.dias || '1';
+  document.getElementById('eq-npax').value = r.npax || '1';
+  document.getElementById('eq-dest').value = r.destino || '';
+  document.getElementById('eq-mot').value  = r.motivo || '';
+  document.getElementById('eq-urg').value  = r.urgencia || 'Normal';
+  document.getElementById('eq-pax').value  = r.pax  || '';
+  document.getElementById('eq-car').value  = r.carga || '';
+  document.getElementById('eq-proj').value = r.projecto || '';
+  // Seleccionar partida correcta
+  const ps = document.getElementById('eq-part');
+  for (let i=0; i<ps.options.length; i++) { if (ps.options[i].value === r.partida) { ps.selectedIndex=i; break; } }
+  openMo('mo-edit-req');
+}
+
+function saveEditReq() {
+  const id  = document.getElementById('eq-id').value;
+  const g   = i => document.getElementById(i).value.trim();
+  const required = [['eq-nome','Nome'],['eq-dep','Departamento'],['eq-tel','Telefone'],['eq-data','Data'],['eq-dest','Destino'],['eq-mot','Motivo']];
+  for (const [fid, lb] of required) {
+    if (!g(fid)) { toast('Campo obrigatório: ' + lb, 'error'); document.getElementById(fid).focus(); return; }
+  }
+  const reqs = getReqs();
+  const idx  = reqs.findIndex(x => x.id === id);
+  if (idx === -1 || reqs[idx].status !== 'Pendente') { toast('Pedido não pode ser editado.', 'error'); return; }
+  reqs[idx] = Object.assign(reqs[idx], {
+    nome: g('eq-nome'), dep: g('eq-dep'), tel: g('eq-tel'), email: g('eq-email'),
+    dataSaida: g('eq-data'), dataRegresso: g('eq-ret') || g('eq-data'),
+    horaSaida: g('eq-hs'), horaRegresso: g('eq-hr'),
+    dias: g('eq-dias'), npax: g('eq-npax'),
+    partida: g('eq-part'), destino: g('eq-dest'),
+    motivo: g('eq-mot'), urgencia: g('eq-urg'),
+    pax: g('eq-pax'), carga: g('eq-car'), projecto: g('eq-proj')
+  });
+  saveReqs(reqs);
+  pushReq(reqs[idx], 'updateOne');
+  closeMo('mo-edit-req');
+  searchMyReqs();
+  toast('✔ Pedido ' + id + ' actualizado com sucesso!', 'success');
 }
 
 function clearByStatus(status) {
