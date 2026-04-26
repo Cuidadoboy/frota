@@ -401,33 +401,30 @@ async function submitReq() {
   const reqs = getReqs();
   reqs.push(r);
   saveReqs(reqs);
-  setSyncBadge('syncing', '↑ A enviar...');
-  await pushReq(r, 'addOne');
-  setSyncBadge('synced', '☁ ' + reqs.length + ' pedidos');
-  // Notificação por email
-  try {
-    if (EMAILJS_PUBLIC_KEY !== 'SEU_PUBLIC_KEY') {
-      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        to_email:   NOTIFY_EMAIL,
-        req_id:     r.id,
-        req_nome:   r.nome,
-        req_dep:    r.dep,
-        req_tel:    r.tel,
-        req_email:  r.email || '—',
-        req_data:   r.dataSaida,
-        req_dest:   r.destino,
-        req_motivo: r.motivo,
-        req_urg:    r.urgencia,
-        req_pax:    r.npax + (r.pax ? ' (' + r.pax + ')' : ''),
-        req_proj:   r.projecto || '—',
-        req_partida:r.partida,
-        req_hora:   r.horaSaida + ' – ' + r.horaRegresso,
-        req_dias:   r.dias
-      });
-    }
-  } catch(e) { console.warn('Email não enviado:', e); }
   clearForm(); refreshRN(); updatePC();
   toast('✔ Pedido ' + r.id + ' enviado com sucesso!', 'success');
+  // Envio em background (não bloqueia a UI)
+  setSyncBadge('syncing', '↑ A enviar...');
+  pushReq(r, 'addOne').then(() => setSyncBadge('synced', '☁ ' + reqs.length + ' pedidos'));
+  if (EMAILJS_PUBLIC_KEY !== 'SEU_PUBLIC_KEY') {
+    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+      to_email:   NOTIFY_EMAIL,
+      req_id:     r.id,
+      req_nome:   r.nome,
+      req_dep:    r.dep,
+      req_tel:    r.tel,
+      req_email:  r.email || '—',
+      req_data:   r.dataSaida,
+      req_dest:   r.destino,
+      req_motivo: r.motivo,
+      req_urg:    r.urgencia,
+      req_pax:    r.npax + (r.pax ? ' (' + r.pax + ')' : ''),
+      req_proj:   r.projecto || '—',
+      req_partida:r.partida,
+      req_hora:   r.horaSaida + ' – ' + r.horaRegresso,
+      req_dias:   r.dias
+    }).catch(e => console.warn('Email não enviado:', e));
+  }
 }
 
 function clearForm() {
