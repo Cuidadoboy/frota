@@ -135,6 +135,14 @@ tr:hover td{background:var(--ol)}
   .hero-i{display:none}
 }
 @media(max-width:480px){.stats{grid-template-columns:1fr}}
+.slog-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--br);margin-bottom:6px;font-size:12px;flex-wrap:wrap}
+.slog-item.ok{border-color:#A8D5B8;background:#F8FCF9}
+.slog-item.fail{border-color:#F0B8B0;background:#FDF7F6}
+.slog-item.blocked{border-color:#f59e0b;background:#fffbeb}
+.slog-ts{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tl);white-space:nowrap}
+.slog-detail{flex:1;min-width:0}
+.slog-em{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.slog-ua{font-size:10.5px;color:var(--tm);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 <style>
 #app-loader{position:fixed;inset:0;background:#C94F10;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s}
@@ -160,6 +168,7 @@ tr:hover td{background:var(--ol)}
     <button class="nb mgr" id="nv-req" style="display:none" onclick="showView('requests',this)">Pedidos <span class="cb" id="pc">0</span></button>
     <button class="nb mgr" id="nv-plan" style="display:none" onclick="showView('plan',this)">Plano Semanal</button>
     <button class="nb mgr" id="nv-fleet" style="display:none" onclick="showView('fleet',this)">⚙ Frota</button>
+    <button class="nb mgr" id="nv-sec" style="display:none" onclick="showView('security',this)">🔒 Segurança</button>
     <button class="nb" id="nv-out" style="display:none;background:rgba(255,255,255,.15);color:#fff" onclick="logout()">Sair</button>
     <button class="nb" id="nv-in" onclick="openLogin()" style="border:1.5px solid rgba(255,255,255,.5);color:#fff">🔐 Gestor</button>
     <button class="nb" id="btn-install" style="display:none;background:#fff;color:var(--od);font-weight:700;border-radius:8px" onclick="installApp()">⬇ Instalar App</button>
@@ -259,6 +268,22 @@ tr:hover td{background:var(--ol)}
       <button class="btn bp" onclick="searchMyReqs()">Procurar</button>
     </div>
     <div id="edit-results"></div>
+  </div>
+</div>
+
+<div class="view" id="view-security">
+  <div class="hero" style="background:linear-gradient(135deg,#1A3C5B 0%,#2d5a8e 100%)">
+    <div><div class="hero-t">Registo de Segurança</div><div class="hero-s">Tentativas de acesso ao painel de gestor</div></div>
+    <div class="hero-i">🔒</div>
+  </div>
+  <div class="card">
+    <div class="stit">
+      <div class="sico">🛡</div>Últimas tentativas de login
+      <div class="er_">
+        <button class="btn bsm bd" onclick="clearSecLog()">🗑 Limpar registo</button>
+      </div>
+    </div>
+    <div id="sec-log-list"></div>
   </div>
 </div>
 </main>
@@ -415,6 +440,54 @@ setInterval(() => {
   if (rem < WARN_MS) toast('Sessão expira em ' + Math.ceil(rem/60000) + ' min. Clique para renovar.', '');
 }, 60000);
 
+// ── REGISTO DE SEGURANÇA ──
+const KEY_SECLOG = 'aea_seclog';
+
+function logAttempt(email, result) {
+  const logs = JSON.parse(localStorage.getItem(KEY_SECLOG) || '[]');
+  const ua = navigator.userAgent;
+  const isMobile = /Mobi|Android/i.test(ua);
+  const os = (ua.match(/\(([^)]+)\)/)?.[1]?.split(';')[0] || '').trim() || (isMobile ? 'Móvel' : 'Desktop');
+  logs.unshift({ ts: new Date().toISOString(), email: email || '(vazio)', result, device: (isMobile ? '📱 ' : '💻 ') + os });
+  if (logs.length > 30) logs.splice(30);
+  localStorage.setItem(KEY_SECLOG, JSON.stringify(logs));
+  updSecBadge();
+}
+
+function updSecBadge() {
+  const logs = JSON.parse(localStorage.getItem(KEY_SECLOG) || '[]');
+  const n = logs.filter(l => l.result === 'blocked').length;
+  const btn = document.getElementById('nv-sec');
+  if (btn) btn.innerHTML = '🔒 Segurança' + (n > 0 ? ' <span class="cb">' + n + '</span>' : '');
+}
+
+function renderSecLog() {
+  const logs = JSON.parse(localStorage.getItem(KEY_SECLOG) || '[]');
+  const el = document.getElementById('sec-log-list');
+  if (!el) return;
+  if (!logs.length) { el.innerHTML = '<div class="es"><div class="em">🛡</div><p>Nenhuma tentativa de acesso registada.</p></div>'; return; }
+  el.innerHTML = logs.map(l => {
+    const dt = new Date(l.ts);
+    const ts = dt.toLocaleDateString('pt') + ' ' + dt.toLocaleTimeString('pt', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    const badge = l.result === 'ok'
+      ? '<span class="badge bap">✔ Acesso autorizado</span>'
+      : l.result === 'blocked'
+        ? '<span class="badge" style="background:#fff3cd;color:#856404">⚠ Conta bloqueada</span>'
+        : '<span class="badge brj">✕ Senha incorrecta</span>';
+    return '<div class="slog-item ' + l.result + '">' +
+      '<div class="slog-ts">' + ts + '</div>' +
+      '<div class="slog-detail"><div class="slog-em">' + l.email + '</div><div class="slog-ua">' + l.device + '</div></div>' +
+      badge + '</div>';
+  }).join('');
+}
+
+function clearSecLog() {
+  if (!confirm('Apagar todo o registo de segurança?')) return;
+  localStorage.removeItem(KEY_SECLOG);
+  renderSecLog(); updSecBadge();
+  toast('Registo limpo.', '');
+}
+
 // ── EMAIL JS (notificações) ──
 // Substitui EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID e EMAILJS_TEMPLATE_ID
 // após criar conta gratuita em https://www.emailjs.com
@@ -567,7 +640,7 @@ function clearForm() {
 let cv = 'form';
 function showView(v, btn) {
   sessTouch();
-  if (!isMgr() && ['requests','plan','fleet'].includes(v)) { toast('🔐 Acesso restrito.', 'error'); return; }
+  if (!isMgr() && ['requests','plan','fleet','security'].includes(v)) { toast('🔐 Acesso restrito.', 'error'); return; }
   document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
   document.querySelectorAll('.nb').forEach(e => e.classList.remove('active'));
   document.getElementById('view-' + v).classList.add('active');
@@ -577,6 +650,7 @@ function showView(v, btn) {
   if (v === 'plan') renderPlan();
   if (v === 'fleet') renderFleet();
   if (v === 'edit') { document.getElementById('edit-search').value=''; document.getElementById('edit-results').innerHTML=''; }
+  if (v === 'security') renderSecLog();
 }
 function showDirect(v) {
   document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
@@ -1008,9 +1082,12 @@ async function doLogin() {
   if (em === MGR_EM && h === _mh) {
     lockClear();
     sessCreate();
+    logAttempt(em, 'ok');
     closeLo(); applyRole(); toast('✔ Bem-vindo, Eliseu!', 'success');
   } else {
     const rem = lockRecord();
+    const blocked = rem === 0;
+    logAttempt(em, blocked ? 'blocked' : 'fail');
     const el = document.getElementById('le');
     el.textContent = rem > 0
       ? 'Email ou senha incorrectos. ' + rem + ' tentativa(s) restante(s).'
@@ -1056,6 +1133,9 @@ setTimeout(async () => {
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
+
+// Mostrar badge de alertas de segurança se já houver registos
+setTimeout(updSecBadge, 100);
 
 // ── INSTALAR APP (PWA) ──
 let deferredInstall = null;
