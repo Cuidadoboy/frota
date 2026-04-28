@@ -135,6 +135,15 @@ tr:hover td{background:var(--ol)}
   .hero-i{display:none}
 }
 @media(max-width:480px){.stats{grid-template-columns:1fr}}
+.mng-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--br);margin-bottom:6px;cursor:pointer;transition:background .15s}
+.mng-item:hover{background:var(--ol)}
+.mng-item input[type=checkbox]{width:17px;height:17px;accent-color:var(--oa);flex-shrink:0;cursor:pointer}
+.mng-info{flex:1;min-width:0}
+.mng-id{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--tl)}
+.mng-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mng-dest{font-size:11.5px;color:var(--tm);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mng-list{max-height:55vh;overflow-y:auto;padding-right:4px}
+.mng-bar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}
 .slog-item{display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:8px;border:1px solid var(--br);margin-bottom:6px;font-size:12px;flex-wrap:wrap}
 .slog-item.ok{border-color:#A8D5B8;background:#F8FCF9}
 .slog-item.fail{border-color:#F0B8B0;background:#FDF7F6}
@@ -226,6 +235,7 @@ tr:hover td{background:var(--ol)}
         <button class="btn bsm bs" onclick="expPdf()">📄 PDF</button>
         <button class="btn bsm bd" onclick="clearByStatus('Aprovado')" title="Apagar todos os aprovados">🗑 Limpar Aprovados</button>
         <button class="btn bsm bd" onclick="clearByStatus('Rejeitado')" title="Apagar todos os rejeitados">🗑 Limpar Rejeitados</button>
+        <button class="btn bsm bs" onclick="openManage()" title="Escolher quais pedidos guardar">⚙ Gerir</button>
       </div>
     </div>
     <div id="req-list" class="rl_"></div>
@@ -365,6 +375,24 @@ tr:hover td{background:var(--ol)}
   </div>
 </div>
 
+<div class="mo" id="mo-manage">
+  <div class="mb" style="max-width:700px">
+    <button class="mc" onclick="closeMo('mo-manage')">✕</button>
+    <div class="mt_">⚙ Gerir Pedidos — Escolher o que fica</div>
+    <p style="font-size:12px;color:var(--tm);margin-bottom:14px">Marque os pedidos que pretende <strong>manter</strong>. Os desmarcados serão eliminados local e na nuvem.</p>
+    <div class="mng-bar">
+      <button class="btn bsm bs" onclick="mngToggleAll(true)">✔ Seleccionar todos</button>
+      <button class="btn bsm bd" onclick="mngToggleAll(false)">✕ Desseleccionar todos</button>
+      <span id="mng-count" style="font-size:12px;color:var(--tm);margin-left:auto"></span>
+    </div>
+    <div class="mng-list" id="mng-list"></div>
+    <div class="br_" style="margin-top:16px">
+      <button class="btn bs" onclick="closeMo('mo-manage')">Cancelar</button>
+      <button class="btn bp" onclick="saveManage()">💾 Guardar selecção</button>
+    </div>
+  </div>
+</div>
+
 <div id="login-screen">
   <div class="lb">
     <div class="lh">
@@ -392,11 +420,17 @@ const SESS_MS  = 30 * 60 * 1000;
 const WARN_MS  =  2 * 60 * 1000;
 const MAX_FAIL = 5;
 const LOCK_MS  =  5 * 60 * 1000;
-let _mh = null;
+let _mh = null, _logoB64 = null;
 (async () => {
   const pw = [65,101,65,64,50,48,50,51].map(c => String.fromCharCode(c)).join('');
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(MGR_EM + ':' + pw));
   _mh = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+})();
+(async () => {
+  try {
+    const blob = await (await fetch('./logo1.png')).blob();
+    _logoB64 = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(blob); });
+  } catch(e) {}
 })();
 
 // ── SESSION ──
@@ -957,10 +991,61 @@ function delFlV(id) {
 }
 
 // ── PDF ──
+// ── GERIR PEDIDOS ──
+function openManage() {
+  const reqs = getReqs().slice().reverse();
+  const el = document.getElementById('mng-list');
+  if (!reqs.length) { toast('Não há pedidos para gerir.', ''); return; }
+  el.innerHTML = reqs.map(r => {
+    const bc = r.status==='Aprovado'?'bap':r.status==='Rejeitado'?'brj':'bpd';
+    return '<label class="mng-item">' +
+      '<input type="checkbox" class="mng-chk" value="' + r.id + '" checked>' +
+      '<div class="mng-info">' +
+        '<div class="mng-id">' + r.id + ' · ' + fmtD(r.created) + '</div>' +
+        '<div class="mng-name">' + (r.nome||'—') + '</div>' +
+        '<div class="mng-dest">→ ' + (r.destino||'—') + ' · ' + (r.dataSaida||'—') + '</div>' +
+      '</div>' +
+      '<span class="badge ' + bc + '">' + r.status + '</span>' +
+    '</label>';
+  }).join('');
+  mngUpdCount();
+  document.getElementById('mo-manage').classList.add('open');
+  el.querySelectorAll('.mng-chk').forEach(cb => cb.addEventListener('change', mngUpdCount));
+}
+
+function mngUpdCount() {
+  const all = document.querySelectorAll('.mng-chk');
+  const sel = document.querySelectorAll('.mng-chk:checked');
+  document.getElementById('mng-count').textContent = sel.length + ' de ' + all.length + ' seleccionados';
+}
+
+function mngToggleAll(state) {
+  document.querySelectorAll('.mng-chk').forEach(cb => cb.checked = state);
+  mngUpdCount();
+}
+
+async function saveManage() {
+  const checked = new Set([...document.querySelectorAll('.mng-chk:checked')].map(cb => cb.value));
+  const reqs = getReqs();
+  const toDelete = reqs.filter(r => !checked.has(r.id));
+  if (!toDelete.length) { closeMo('mo-manage'); toast('Nenhuma alteração.', ''); return; }
+  if (!confirm('Eliminar ' + toDelete.length + ' pedido(s) e manter ' + checked.size + '?\nEsta acção não pode ser desfeita.')) return;
+  addDeleted(toDelete.map(r => r.id));
+  saveReqs(reqs.filter(r => checked.has(r.id)));
+  toDelete.forEach(r => pushReq({id: r.id}, 'deleteOne'));
+  closeMo('mo-manage');
+  renderStats(); renderReqs(); updatePC();
+  toast('✔ ' + checked.size + ' pedido(s) mantido(s). ' + toDelete.length + ' eliminado(s).', 'success');
+}
+
+function addPdfLogo(doc, x, y, w, h) {
+  if (_logoB64) try { doc.addImage(_logoB64, 'PNG', x, y, w, h); } catch(e) {}
+}
 function expPdf() {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
+  addPdfLogo(doc, 258, 3, 30, 15);
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
   doc.text('AYUDA EN ACCIÓN – MOÇAMBIQUE · Gestão de Frota',14,9);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
@@ -981,6 +1066,7 @@ function expSingle(id) {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,210,38,'F');
+  addPdfLogo(doc, 172, 4, 28, 14);
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
   doc.text('REQUISIÇÃO DE VIATURA',14,14);
   doc.setFontSize(11); doc.setFont('helvetica','normal');
@@ -1012,6 +1098,7 @@ function expPlanPdf() {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
+  addPdfLogo(doc, 258, 3, 30, 15);
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
   doc.text('AYUDA EN ACCIÓN – PLANO SEMANAL DE VIATURAS',14,9);
   const wv = document.getElementById('wk').value;
