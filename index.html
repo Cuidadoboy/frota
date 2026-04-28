@@ -1,1013 +1,870 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="theme-color" content="#F26522">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="AeA Frota">
-<title>AeA Frota – Moçambique</title>
-<link rel="manifest" href="manifest.json">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-<style>
-:root{
-  --oa:#F26522;--od:#C94F10;--ol:#FEF0E8;--om:#FDCFB3;
-  --bg:#FAF8F5;--bw:#fff;--tx:#1C1410;--tm:#7A6558;--tl:#B0A090;
-  --br:#EDE6DE;--ok:#1E7D4A;--okb:#E8F7EE;--wn:#A86200;--wnb:#FFF5E0;
-  --er:#C0392B;--erb:#FDECEA;
-  --sh:0 2px 16px rgba(242,101,34,.09);--shl:0 8px 40px rgba(242,101,34,.16);
-  --r:10px;--rl:16px;--rx:24px;
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Sora',sans-serif;background:var(--bg);color:var(--tx);min-height:100vh}
-header{background:var(--od);padding:0 28px;display:flex;align-items:center;justify-content:space-between;height:68px;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.18)}
-.logo-area{display:flex;align-items:center;gap:14px}
-.aea-logo{height:44px;width:auto;object-fit:contain}
-.logo-div{width:1px;height:36px;background:rgba(255,255,255,.25);margin:0 4px}
-.logo-text{font-size:12.5px;font-weight:700;color:#fff;line-height:1.3;text-transform:uppercase;letter-spacing:.05em}
-.logo-text span{display:block;font-weight:400;color:rgba(255,255,255,.7);font-size:11px;text-transform:none;letter-spacing:0}
-.hdr-nav{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
-.nb{padding:8px 18px;border-radius:8px;border:none;cursor:pointer;font-family:'Sora',sans-serif;font-size:13px;font-weight:500;transition:all .18s;background:transparent;color:rgba(255,255,255,.75);white-space:nowrap}
-.nb.active{background:rgba(255,255,255,.2);color:#fff}
-.nb:hover:not(.active){background:rgba(255,255,255,.15);color:#fff}
-#sync-badge{display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,.75);padding:5px 10px;background:rgba(255,255,255,.12);border-radius:20px;border:1px solid rgba(255,255,255,.2)}
-#sync-badge .dot{width:7px;height:7px;border-radius:50%;background:#ccc;transition:background .3s}
-#sync-badge.synced .dot{background:#4ade80}
-#sync-badge.syncing .dot{background:#fbbf24;animation:pulse 1s infinite}
-#sync-badge.error .dot{background:#f87171}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-main{max-width:1160px;margin:0 auto;padding:32px 24px}
-.view{display:none}.view.active{display:block}
-.hero{background:linear-gradient(135deg,var(--oa) 0%,#E85B10 60%,var(--od) 100%);border-radius:var(--rx);padding:28px 32px;margin-bottom:24px;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:20px;position:relative;overflow:hidden}
-.hero::before{content:'';position:absolute;right:-40px;top:-40px;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.07)}
-.hero-t{font-size:20px;font-weight:700;margin-bottom:4px}
-.hero-s{font-size:13px;opacity:.85}
-.hero-i{font-size:56px;position:relative;z-index:1}
-.card{background:var(--bw);border-radius:var(--rl);border:1px solid var(--br);box-shadow:var(--sh);padding:28px;margin-bottom:20px}
-.stit{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--oa);display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--br)}
-.sico{width:30px;height:30px;background:var(--ol);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
-.fg{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.fg3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px}
-.s2{grid-column:span 2}.s3{grid-column:span 3}
-.fi{display:flex;flex-direction:column;gap:6px}
-label{font-size:11.5px;font-weight:600;color:var(--tm);letter-spacing:.04em;text-transform:uppercase}
-input,select,textarea{font-family:'Sora',sans-serif;font-size:14px;padding:10px 14px;border:1.5px solid var(--br);border-radius:var(--r);background:var(--bg);color:var(--tx);transition:border-color .15s,box-shadow .15s;width:100%}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--oa);box-shadow:0 0 0 3px rgba(242,101,34,.12);background:#fff}
-textarea{resize:vertical;min-height:76px}
-.btn{display:inline-flex;align-items:center;gap:7px;padding:11px 22px;border-radius:var(--r);border:none;cursor:pointer;font-family:'Sora',sans-serif;font-size:13.5px;font-weight:600;transition:all .18s}
-.bp{background:var(--oa);color:#fff}.bp:hover{background:var(--od);transform:translateY(-1px);box-shadow:var(--shl)}
-.bs{background:var(--bg);color:var(--tx);border:1.5px solid var(--br)}.bs:hover{background:var(--ol);border-color:var(--oa);color:var(--oa)}
-.bgr{background:var(--ok);color:#fff}.bgr:hover{background:#175F37}
-.bd{background:var(--er);color:#fff}.bd:hover{background:#9B2B20}
-.bsm{padding:6px 14px;font-size:12px}
-.br_{display:flex;gap:10px;justify-content:flex-end;margin-top:24px;flex-wrap:wrap}
-.rn{font-family:'JetBrains Mono',monospace;background:var(--ol);color:var(--oa);padding:8px 16px;border-radius:8px;font-size:16px;font-weight:500;letter-spacing:.06em;display:inline-block;margin-bottom:22px;border:1px solid var(--om)}
-.badge{display:inline-flex;align-items:center;gap:5px;padding:4px 11px;border-radius:20px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
-.bpd{background:var(--wnb);color:var(--wn)}
-.bap{background:var(--okb);color:var(--ok)}
-.brj{background:var(--erb);color:var(--er)}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
-.sc{background:#fff;border:1px solid var(--br);border-radius:var(--rl);padding:18px 20px;box-shadow:var(--sh)}
-.sc .sn{font-size:28px;font-weight:800;color:var(--oa);line-height:1}
-.sc .sl{font-size:11px;color:var(--tm);font-weight:500;text-transform:uppercase;letter-spacing:.05em}
-.sc.g .sn{color:var(--ok)}.sc.r .sn{color:var(--er)}.sc.w .sn{color:var(--wn)}
-.rl_{display:flex;flex-direction:column;gap:12px}
-.ri{border:1.5px solid var(--br);border-radius:var(--rl);padding:18px 20px;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;background:#fff;transition:box-shadow .18s}
-.ri:hover{box-shadow:var(--sh)}
-.ri.aprovado{border-color:#A8D5B8;background:#F8FCF9}
-.ri.rejeitado{border-color:#F0B8B0;background:#FDF7F6}
-.ri.pendente{border-left:4px solid var(--oa)}
-.rm{flex:1;min-width:200px}
-.rid{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tl);margin-bottom:4px}
-.rt_{font-size:14.5px;font-weight:700;margin-bottom:6px}
-.rd{font-size:12px;color:var(--tm);line-height:1.8}
-.rc{display:inline-block;background:var(--ol);color:var(--od);border-radius:4px;padding:1px 7px;font-size:11px;font-weight:600;margin-right:4px}
-.ra{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.wctl{display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;background:var(--bg);padding:14px 18px;border-radius:var(--r);border:1px solid var(--br)}
-.wdi{font-family:'JetBrains Mono',monospace;font-size:14px;padding:9px 14px;border:2px solid var(--oa);border-radius:var(--r);background:#fff;color:var(--oa);font-weight:500}
-.tw{overflow-x:auto;border-radius:var(--r)}
-table{width:100%;border-collapse:collapse;font-size:12.5px}
-th{background:var(--oa);color:#fff;padding:11px 13px;text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;white-space:nowrap}
-th:first-child{border-radius:8px 0 0 0}th:last-child{border-radius:0 8px 0 0}
-td{padding:9px 13px;border-bottom:1px solid var(--br);vertical-align:middle}
-tr:hover td{background:var(--ol)}
-.fg_{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.fc{background:var(--bg);border:1.5px solid var(--br);border-radius:var(--rl);padding:18px;transition:box-shadow .18s}
-.fc:hover{box-shadow:var(--sh)}
-.fc h4{font-size:13.5px;font-weight:700;margin-bottom:12px;color:var(--oa)}
-.fi_{font-size:12.5px;line-height:2;color:var(--tm)}
-.fi_ b{color:var(--tx)}
-.mo{display:none;position:fixed;inset:0;background:rgba(28,20,16,.55);z-index:200;justify-content:center;align-items:flex-start;padding:40px 16px;overflow-y:auto;backdrop-filter:blur(4px)}
-.mo.open{display:flex}
-.mb{background:#fff;border-radius:var(--rx);width:100%;max-width:640px;padding:32px;box-shadow:var(--shl);position:relative;animation:mi .22s cubic-bezier(.34,1.56,.64,1)}
-@keyframes mi{from{transform:translateY(-24px) scale(.97);opacity:0}to{transform:none;opacity:1}}
-.mt_{font-size:17px;font-weight:700;margin-bottom:22px;padding-bottom:16px;border-bottom:1px solid var(--br);display:flex;align-items:center;gap:10px;color:var(--oa)}
-.mc{position:absolute;top:18px;right:18px;background:var(--bg);border:none;width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
-.mc:hover{background:var(--ol)}
-#toast{position:fixed;bottom:28px;right:28px;z-index:999;display:none;background:var(--tx);color:#fff;padding:14px 22px;border-radius:12px;font-size:13.5px;font-weight:500;box-shadow:var(--shl);max-width:360px}
-#toast.success{background:var(--ok)}#toast.error{background:var(--er)}#toast.info{background:var(--oa)}
-#login-screen{position:fixed;inset:0;background:rgba(28,20,16,.6);z-index:500;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(6px)}
-.lb{background:#fff;border-radius:var(--rx);padding:40px 36px;width:100%;max-width:400px;box-shadow:0 24px 64px rgba(242,101,34,.24);text-align:center}
-.lh h2{font-size:20px;font-weight:800;color:var(--oa);margin-top:14px}
-.lh p{font-size:12px;color:var(--tm);margin-top:4px}
-.le{background:var(--erb);color:var(--er);border-radius:8px;padding:10px 14px;font-size:13px;margin-bottom:16px;display:none}
-.lf{text-align:left;margin-bottom:14px}
-#fab{position:fixed;bottom:32px;right:32px;z-index:150;width:60px;height:60px;border-radius:50%;background:var(--oa);color:#fff;border:none;cursor:pointer;font-size:28px;box-shadow:0 6px 28px rgba(242,101,34,.45);display:flex;align-items:center;justify-content:center;transition:transform .18s,box-shadow .18s}
-#fab:hover{transform:scale(1.1) rotate(15deg)}
-.er_{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-left:auto}
-.es{text-align:center;padding:56px 24px;color:var(--tm)}
-.es .em{font-size:44px;margin-bottom:14px}
-.mono{font-family:'JetBrains Mono',monospace;font-size:12px}
-.cb{background:var(--oa);color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:4px}
-#offline-badge{display:none;background:rgba(255,255,255,.15);color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.3)}
-@media(max-width:768px){
-  .fg,.fg3{grid-template-columns:1fr}
-  .s2,.s3{grid-column:span 1}
-  header{flex-wrap:wrap;height:auto;padding:12px 16px;gap:10px}
-  .hdr-nav{width:100%;justify-content:center;overflow-x:auto}
-  main{padding:16px 12px}
-  .stats{grid-template-columns:1fr 1fr}
-  .hero-i{display:none}
-}
-@media(max-width:480px){.stats{grid-template-columns:1fr}}
-</style>
-<style>
-#app-loader{position:fixed;inset:0;background:#C94F10;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .4s}
-#app-loader.hide{opacity:0;pointer-events:none}
-#app-loader .sp{width:48px;height:48px;border:5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;margin-bottom:18px}
-#app-loader p{color:#fff;font-family:'Sora',sans-serif;font-size:14px;font-weight:600;letter-spacing:.05em}
-#app-loader small{color:rgba(255,255,255,.7);font-family:'Sora',sans-serif;font-size:11px;margin-top:6px}
-@keyframes spin{to{transform:rotate(360deg)}}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="theme-color" content="#F26522">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="AeA Frota">
+  <link rel="manifest" href="./manifest.json">
+  <title>AeA — Gestão de Frota</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --orange:#F26522;--orange-dark:#d4551a;--blue:#1A3C5B;
+      --green:#27ae60;--red:#e74c3c;--yellow:#f39c12;
+      --card:#fff;--border:#e2e8f0;--text:#2d3748;--muted:#718096;
+      --shadow:0 1px 3px rgba(0,0,0,.1),0 1px 2px rgba(0,0,0,.06);
+      --shadow-lg:0 10px 15px -3px rgba(0,0,0,.1),0 4px 6px -2px rgba(0,0,0,.05);
+      --r:8px
+    }
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f0f2f5;color:var(--text);min-height:100vh}
+
+    /* LOGIN */
+    .overlay{position:fixed;inset:0;background:linear-gradient(135deg,#1A3C5B 0%,#F26522 100%);display:flex;align-items:center;justify-content:center;z-index:1000;padding:1rem}
+    .login-card{background:#fff;border-radius:16px;padding:2rem;width:100%;max-width:380px;box-shadow:var(--shadow-lg)}
+    .login-logo{text-align:center;margin-bottom:1.5rem}
+    .login-badge{display:inline-block;background:var(--orange);color:#fff;font-size:2rem;font-weight:900;padding:.4rem .9rem;border-radius:10px;letter-spacing:-1px;margin-bottom:.6rem}
+    .login-logo h2{font-size:1.2rem;color:var(--blue);font-weight:700}
+    .login-logo p{font-size:.78rem;color:var(--muted);margin-top:.2rem}
+    .login-card input{width:100%;padding:.72rem 1rem;border:1.5px solid var(--border);border-radius:var(--r);font-size:.9rem;margin-bottom:.65rem;outline:none;transition:border-color .2s}
+    .login-card input:focus{border-color:var(--orange)}
+
+    /* HEADER */
+    header{background:var(--blue);color:#fff;padding:.7rem 1rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 4px rgba(0,0,0,.2)}
+    .hd-left{display:flex;align-items:center;gap:.7rem}
+    .logo-mark{background:var(--orange);color:#fff;font-weight:900;font-size:.95rem;padding:.28rem .5rem;border-radius:6px;letter-spacing:-.5px;flex-shrink:0}
+    .app-name{font-weight:700;font-size:.95rem;display:block;line-height:1.2}
+    .org-name{font-size:.68rem;color:rgba(255,255,255,.65);display:block}
+    .user-badge{font-size:.72rem;background:rgba(255,255,255,.15);padding:.22rem .55rem;border-radius:99px}
+    .btn-icon{background:none;border:none;color:#fff;font-size:1.1rem;cursor:pointer;padding:.3rem;border-radius:4px;line-height:1}
+    .btn-icon:hover{background:rgba(255,255,255,.2)}
+
+    /* NAV */
+    nav{background:#fff;border-bottom:1px solid var(--border);display:flex;padding:0 .4rem;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .nav-btn{flex:none;padding:.6rem .7rem;border:none;background:none;cursor:pointer;color:var(--muted);font-size:.78rem;font-weight:600;border-bottom:2.5px solid transparent;transition:all .2s;display:flex;align-items:center;gap:.3rem;white-space:nowrap}
+    .nav-btn.active{color:var(--orange);border-bottom-color:var(--orange)}
+    .nav-btn:hover{color:var(--orange)}
+    .badge{background:var(--red);color:#fff;font-size:.62rem;font-weight:700;padding:.1rem .32rem;border-radius:99px;min-width:1.15em;text-align:center}
+
+    /* MAIN */
+    main{max-width:960px;margin:0 auto;padding:1rem}
+    .view{display:none}
+    .view.active{display:block}
+    .view-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:.9rem;flex-wrap:wrap;gap:.5rem}
+    .view-hd h2{font-size:1.1rem;font-weight:700;color:var(--blue)}
+    .view-hd p{font-size:.82rem;color:var(--muted);margin-top:.1rem}
+    .view-acts{display:flex;gap:.4rem;flex-wrap:wrap}
+
+    /* CARDS */
+    .card{background:var(--card);border-radius:var(--r);padding:1.2rem;box-shadow:var(--shadow);margin-bottom:1rem}
+
+    /* FORMS */
+    .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+    @media(max-width:580px){.form-grid{grid-template-columns:1fr}}
+    .col2{grid-column:1/-1}
+    .fg{display:flex;flex-direction:column;gap:.28rem}
+    .fg label{font-size:.8rem;font-weight:600;color:var(--text)}
+    .fg input,.fg select,.fg textarea{padding:.58rem .75rem;border:1.5px solid var(--border);border-radius:var(--r);font-size:.88rem;font-family:inherit;outline:none;transition:border-color .2s;background:#fff}
+    .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--orange)}
+    .fg textarea{resize:vertical}
+    .form-acts{margin-top:1.1rem;display:flex;justify-content:flex-end;gap:.7rem}
+
+    /* BUTTONS */
+    .btn,.btn-outline,.btn-danger,.btn-sec{padding:.58rem 1.15rem;border-radius:var(--r);font-size:.85rem;font-weight:600;cursor:pointer;border:none;transition:all .2s;display:inline-flex;align-items:center;gap:.35rem;line-height:1.2}
+    .btn{background:var(--orange);color:#fff}
+    .btn:hover{background:var(--orange-dark)}
+    .btn-sec{background:var(--blue);color:#fff}
+    .btn-sec:hover{background:#152f47}
+    .btn-outline{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+    .btn-outline:hover{border-color:var(--orange);color:var(--orange)}
+    .btn-danger{background:var(--red);color:#fff}
+    .btn-danger:hover{background:#c0392b}
+    .btn-success{background:var(--green);color:#fff;padding:.58rem 1.15rem;border-radius:var(--r);font-size:.85rem;font-weight:600;cursor:pointer;border:none;transition:background .2s;display:inline-flex;align-items:center;gap:.35rem}
+    .btn-success:hover{background:#219a52}
+    .sm{padding:.33rem .65rem;font-size:.77rem}
+    .full{width:100%;justify-content:center;margin-bottom:.45rem}
+
+    /* MESSAGE */
+    .msg{padding:.9rem 1rem;border-radius:var(--r);margin-top:.7rem;font-size:.87rem;font-weight:500}
+    .msg.ok{background:#d4edda;color:#155724;border:1px solid #c3e6cb}
+    .msg.err{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb}
+
+    /* FILTER TABS */
+    .ftabs{display:flex;gap:.4rem;margin-bottom:.9rem;flex-wrap:wrap}
+    .ftab{padding:.38rem .85rem;border-radius:99px;border:1.5px solid var(--border);background:#fff;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s;color:var(--muted)}
+    .ftab.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+
+    /* REQUEST CARDS */
+    .rcard{background:var(--card);border-radius:var(--r);padding:.95rem 1.15rem;box-shadow:var(--shadow);margin-bottom:.7rem;border-left:4px solid var(--border)}
+    .rcard.pending{border-left-color:var(--yellow)}
+    .rcard.approved{border-left-color:var(--green)}
+    .rcard.denied{border-left-color:var(--red)}
+    .rcard-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
+    .rcard-name{font-weight:700;font-size:.93rem}
+    .rcard-meta{font-size:.76rem;color:var(--muted);margin-top:.15rem}
+    .sbadge{font-size:.7rem;font-weight:700;padding:.22rem .55rem;border-radius:99px;white-space:nowrap;flex-shrink:0}
+    .sbadge.pending{background:#fef3c7;color:#92400e}
+    .sbadge.approved{background:#d1fae5;color:#065f46}
+    .sbadge.denied{background:#fee2e2;color:#991b1b}
+    .rcard-details{margin-top:.55rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:.35rem}
+    .rcard-detail{font-size:.78rem;color:var(--muted)}
+    .rcard-detail strong{color:var(--text);font-weight:600}
+    .rcard-ft{margin-top:.65rem;display:flex;gap:.4rem;justify-content:flex-end;flex-wrap:wrap}
+
+    /* PLAN */
+    .tbl-wrap{overflow-x:auto}
+    table{width:100%;border-collapse:collapse;background:var(--card);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+    thead{background:var(--blue);color:#fff}
+    th{padding:.7rem 1rem;text-align:left;font-size:.8rem;font-weight:600}
+    td{padding:.65rem 1rem;font-size:.8rem;border-bottom:1px solid var(--border);vertical-align:top}
+    tr:last-child td{border-bottom:none}
+    tr:hover td{background:#f7fafc}
+    .pcell{display:flex;flex-direction:column;gap:.25rem}
+    .preq{background:#fff4ec;border:1px solid #fbd38d;border-radius:4px;padding:.28rem .45rem;font-size:.73rem;line-height:1.4}
+    .preq.approved{background:#f0fff4;border-color:#9ae6b4}
+    .week-lbl{font-weight:600;font-size:.87rem;color:var(--blue);padding:0 .4rem}
+
+    /* FLEET */
+    .fcard{background:var(--card);border-radius:var(--r);padding:.95rem 1.15rem;box-shadow:var(--shadow);margin-bottom:.7rem;display:flex;align-items:center;justify-content:space-between;gap:.9rem;flex-wrap:wrap}
+    .fcard-info{display:flex;align-items:center;gap:.9rem;flex:1}
+    .fcard-ico{font-size:1.9rem}
+    .fcard-name{font-weight:700;font-size:.93rem}
+    .fcard-plate{font-size:.77rem;color:var(--muted);font-family:monospace;background:#f7fafc;padding:.08rem .38rem;border-radius:4px;margin-top:.1rem;display:inline-block}
+    .fcard-yr{font-size:.75rem;color:var(--muted)}
+    .fstatus{font-size:.72rem;font-weight:700;padding:.28rem .65rem;border-radius:99px}
+    .fstatus.available{background:#d1fae5;color:#065f46}
+    .fstatus.in_use{background:#dbeafe;color:#1e40af}
+    .fstatus.maintenance{background:#fee2e2;color:#991b1b}
+    .fcard-acts{display:flex;gap:.4rem}
+
+    /* MODAL */
+    .modal{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;padding:1rem}
+    .mbk{position:absolute;inset:0;background:rgba(0,0,0,.5)}
+    .mcard{position:relative;background:#fff;border-radius:12px;width:100%;max-width:480px;box-shadow:var(--shadow-lg);z-index:1}
+    .mhd{padding:1.1rem 1.2rem .7rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+    .mhd h3{font-size:1rem;font-weight:700;color:var(--blue)}
+    .mbody{padding:1.1rem;display:flex;flex-direction:column;gap:.7rem;max-height:60vh;overflow-y:auto}
+    .mft{padding:.7rem 1.2rem 1.1rem;display:flex;justify-content:flex-end;gap:.6rem;border-top:1px solid var(--border)}
+
+    /* EMPTY */
+    .empty{text-align:center;padding:3rem 1rem;color:var(--muted)}
+    .empty-ico{font-size:2.8rem;margin-bottom:.6rem}
+    .empty p{font-size:.88rem}
+
+    /* TOAST */
+    #toast{position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%) translateY(100px);background:#2d3748;color:#fff;padding:.7rem 1.4rem;border-radius:99px;font-size:.85rem;z-index:999;transition:transform .3s;pointer-events:none;white-space:nowrap;box-shadow:var(--shadow-lg)}
+    #toast.show{transform:translateX(-50%) translateY(0)}
+
+    /* SPINNER */
+    .spin::after{content:'';display:inline-block;width:.75em;height:.75em;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:rotate .6s linear infinite;margin-left:.4em;vertical-align:middle}
+    @keyframes rotate{to{transform:rotate(360deg)}}
+
+    ::-webkit-scrollbar{width:4px;height:4px}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  </style>
 </head>
 <body>
-<div id="app-loader"><div class="sp"></div><p>AeA Frota – Moçambique</p><small>A carregar...</small></div>
+
+<!-- LOGIN -->
+<div id="loginOverlay" class="overlay">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-badge">AeA</div>
+      <h2>Gestão de Frota</h2>
+      <p>Fundação Ayuda en Acción Moçambique</p>
+    </div>
+    <input type="email" id="loginEmail" placeholder="Email do gestor" autocomplete="email">
+    <input type="password" id="loginPwd" placeholder="Senha" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="btn-sec full" onclick="doLogin()">Entrar como Gestor</button>
+    <button class="btn-outline full" style="margin-bottom:0" onclick="skipLogin()">Continuar como Utilizador</button>
+  </div>
+</div>
+
+<!-- HEADER -->
 <header>
-  <div class="logo-area">
-    <img src="logo1.png" class="aea-logo" alt="Ayuda en Acción">
-    <div class="logo-div"></div>
-    <div class="logo-text">Gestão de Frota<span>Moçambique · Requisições de Viatura</span></div>
+  <div class="hd-left">
+    <div class="logo-mark">AeA</div>
+    <div>
+      <span class="app-name">Gestão de Frota</span>
+      <span class="org-name">Fundação Ayuda en Acción Moçambique</span>
+    </div>
   </div>
-  <div class="hdr-nav" id="hdr-nav">
-    <div id="sync-badge"><div class="dot"></div><span id="sync-label">A carregar...</span></div>
-    <button class="nb" onclick="showView('form',this)">＋ Nova Requisição</button>
-    <button class="nb" onclick="showView('edit',this)">✏ Editar Pedido</button>
-    <button class="nb mgr" id="nv-req" style="display:none" onclick="showView('requests',this)">Pedidos <span class="cb" id="pc">0</span></button>
-    <button class="nb mgr" id="nv-plan" style="display:none" onclick="showView('plan',this)">Plano Semanal</button>
-    <button class="nb mgr" id="nv-fleet" style="display:none" onclick="showView('fleet',this)">⚙ Frota</button>
-    <button class="nb" id="nv-out" style="display:none;background:rgba(255,255,255,.15);color:#fff" onclick="logout()">Sair</button>
-    <button class="nb" id="nv-in" onclick="openLogin()" style="border:1.5px solid rgba(255,255,255,.5);color:#fff">🔐 Gestor</button>
-    <button class="nb" id="btn-install" style="display:none;background:#fff;color:var(--od);font-weight:700;border-radius:8px" onclick="installApp()">⬇ Instalar App</button>
+  <div style="display:flex;align-items:center;gap:.5rem">
+    <span id="userBadge" class="user-badge"></span>
+    <button id="btnLogout" class="btn-icon" onclick="logout()" style="display:none" title="Terminar sessão">⏻</button>
   </div>
-  <div id="offline-badge">✈ Offline</div>
 </header>
+
+<!-- NAV -->
+<nav>
+  <button class="nav-btn active" id="navForm" onclick="showView('form')">📋 Requisição</button>
+  <button class="nav-btn" id="navReqs" onclick="showView('reqs')" style="display:none">
+    📂 Pedidos <span id="pendingBadge" class="badge" style="display:none">0</span>
+  </button>
+  <button class="nav-btn" id="navPlan" onclick="showView('plan')" style="display:none">📅 Plano Semanal</button>
+  <button class="nav-btn" id="navFleet" onclick="showView('fleet')" style="display:none">🚗 Frota</button>
+</nav>
+
 <main>
-<div class="view" id="view-form">
-  <div class="hero">
-    <div><div class="hero-t">Requisição de Viatura</div><div class="hero-s">Ayuda en Acción Moçambique · Gestão de Frota</div></div>
-    <div class="hero-i">🚐</div>
-  </div>
-  <div class="card">
-    <div class="stit"><div class="sico">📋</div>Formulário de Requisição<div class="rn" id="rn" style="margin-bottom:0;margin-left:auto">REQ-2026-001</div></div>
-    <div class="stit" style="margin-top:8px"><div class="sico">👤</div>Dados do Requisitante</div>
-    <div class="fg">
-      <div class="fi s2"><label>Nome completo *</label><input id="f-nome" placeholder="Nome e apelido"></div>
-      <div class="fi"><label>Departamento / Projecto *</label><input id="f-dep" placeholder="Ex: WASH, Protecção, Admin"></div>
-      <div class="fi"><label>Telefone *</label><input id="f-tel" type="tel" placeholder="8XXXXXXXX"></div>
-      <div class="fi s2"><label>Email</label><input id="f-email" type="email" placeholder="nome@ayudaenaccion.org"></div>
-    </div>
-    <div class="stit" style="margin-top:24px"><div class="sico">🚗</div>Detalhes da Viagem</div>
-    <div class="fg3">
-      <div class="fi"><label>Data da viagem *</label><input type="date" id="f-data"></div>
-      <div class="fi"><label>Data de regresso</label><input type="date" id="f-ret"></div>
-      <div class="fi"><label>Urgência</label><select id="f-urg"><option>Normal</option><option>Urgente</option><option>Muito urgente</option></select></div>
-      <div class="fi"><label>Hora de saída *</label><input type="time" id="f-hs" value="08:00"></div>
-      <div class="fi"><label>Hora de regresso</label><input type="time" id="f-hr" value="17:00"></div>
-      <div class="fi"><label>Nº de dias *</label><input type="number" id="f-dias" min="1" max="60" value="1"></div>
-      <div class="fi"><label>Nº de passageiros</label><input type="number" id="f-npax" min="1" max="20" value="1"></div>
-      <div class="fi"><label>Local de partida *</label><select id="f-part"><option>Escritório – Pemba</option><option>Escritório – Maputo</option><option>Escritório – Palma</option><option>Campo</option><option>Outro</option></select></div>
-      <div class="fi"><label>Projecto / Doador</label><input id="f-proj" placeholder="Ex: OIM, AECID, UNICEF..."></div>
-      <div class="fi s3"><label>Destino *</label><input id="f-dest" placeholder="Ex: Chiure, Metuge, Mueda..."></div>
-      <div class="fi s3"><label>Nomes dos passageiros</label><input id="f-pax" placeholder="Ex: Eliseu, Cândido, João"></div>
-      <div class="fi s3"><label>Motivo da viagem *</label><textarea id="f-mot" placeholder="Descreva o propósito da viagem..."></textarea></div>
-      <div class="fi s3"><label>Carga / material</label><input id="f-car" placeholder="Ex: Equipamento informático..."></div>
-    </div>
-    <div class="br_">
-      <button class="btn bs" onclick="clearForm()">🗑 Limpar</button>
-      <button class="btn bp" onclick="submitReq()">📤 Enviar Pedido</button>
-    </div>
-  </div>
-</div>
 
-<div class="view" id="view-requests">
-  <div id="stats-row" class="stats"></div>
-  <div class="card">
-    <div class="stit"><div class="sico">📂</div>Pedidos de Viatura
-      <div class="er_">
-        <select id="flt" onchange="renderReqs()" style="font-size:12px;padding:6px 10px;border-radius:8px;border:1px solid var(--br)">
-          <option value="">Todos</option><option value="Pendente">Pendentes</option><option value="Aprovado">Aprovados</option><option value="Rejeitado">Rejeitados</option>
-        </select>
-        <button class="btn bsm bs" onclick="forcSync()">↓ Sincronizar</button>
-        <button class="btn bsm bs" onclick="expXls()">📊 Excel</button>
-        <button class="btn bsm bs" onclick="expPdf()">📄 PDF</button>
-        <button class="btn bsm bd" onclick="clearByStatus('Aprovado')" title="Apagar todos os aprovados">🗑 Limpar Aprovados</button>
-        <button class="btn bsm bd" onclick="clearByStatus('Rejeitado')" title="Apagar todos os rejeitados">🗑 Limpar Rejeitados</button>
+  <!-- FORM VIEW -->
+  <div id="viewForm" class="view active">
+    <div class="view-hd">
+      <div>
+        <h2>Nova Requisição de Viatura</h2>
+        <p>Preencha o formulário para solicitar uma viatura</p>
       </div>
     </div>
-    <div id="req-list" class="rl_"></div>
-  </div>
-</div>
-
-<div class="view" id="view-plan">
-  <div class="card">
-    <div class="stit"><div class="sico">📅</div>Plano Semanal
-      <div class="er_">
-        <button class="btn bsm bs" onclick="expPlanXls()">📊 Excel</button>
-        <button class="btn bsm bs" onclick="expPlanPdf()">📄 PDF</button>
+    <div class="card">
+      <div class="form-grid">
+        <div class="fg">
+          <label>Nome do Requisitante *</label>
+          <input type="text" id="fReq" placeholder="Nome completo">
+        </div>
+        <div class="fg">
+          <label>Departamento *</label>
+          <select id="fDept">
+            <option value="">Seleccionar departamento</option>
+            <option>Direcção</option>
+            <option>Programas</option>
+            <option>Finanças</option>
+            <option>Recursos Humanos</option>
+            <option>Administração</option>
+            <option>Logística</option>
+            <option>MEAL</option>
+            <option>Comunicação</option>
+            <option>Parceiros</option>
+            <option>Outro</option>
+          </select>
+        </div>
+        <div class="fg">
+          <label>Data de Saída *</label>
+          <input type="date" id="fDate">
+        </div>
+        <div class="fg">
+          <label>Hora de Saída *</label>
+          <input type="time" id="fTimeOut">
+        </div>
+        <div class="fg">
+          <label>Hora de Regresso (estimada)</label>
+          <input type="time" id="fTimeRet">
+        </div>
+        <div class="fg">
+          <label>Destino *</label>
+          <input type="text" id="fDest" placeholder="Local de destino">
+        </div>
+        <div class="fg col2">
+          <label>Finalidade / Objectivo da Viagem *</label>
+          <textarea id="fPurpose" rows="3" placeholder="Descreva o objectivo da viagem..."></textarea>
+        </div>
+        <div class="fg">
+          <label>Km Estimados</label>
+          <input type="number" id="fKm" placeholder="ex: 150" min="0">
+        </div>
+        <div class="fg">
+          <label>Nº de Passageiros</label>
+          <input type="number" id="fPax" placeholder="ex: 3" min="1" max="20">
+        </div>
+        <div class="fg col2">
+          <label>Observações</label>
+          <textarea id="fNotes" rows="2" placeholder="Informações adicionais..."></textarea>
+        </div>
+      </div>
+      <div class="form-acts">
+        <button class="btn" onclick="submitReq()">✔ Submeter Requisição</button>
       </div>
     </div>
-    <div class="wctl">
-      <span style="font-size:12px;font-weight:600;color:var(--tm)">Semana de:</span>
-      <input type="date" class="wdi" id="wk" onchange="renderPlan()">
-      <button class="btn bs bsm" onclick="prevWk()">← Anterior</button>
-      <button class="btn bs bsm" onclick="nextWk()">Próxima →</button>
-    </div>
-    <div class="tw"><table id="plan-t"><thead><tr><th>Viatura</th><th>Motorista</th><th>Contacto</th><th>Dia</th><th>Data</th><th>Projecto</th><th>Passageiros</th><th>Saída</th><th>Regresso</th><th>Destino</th><th>Estado</th></tr></thead><tbody id="plan-b"></tbody></table></div>
+    <div id="formMsg" style="display:none"></div>
   </div>
-</div>
 
-<div class="view" id="view-fleet">
-  <div class="card">
-    <div class="stit"><div class="sico">🚙</div>Configuração da Frota<button class="btn bp bsm" style="margin-left:auto" onclick="openFleetMo()">+ Adicionar Viatura</button></div>
-    <div class="fg_" id="fleet-grid"></div>
-  </div>
-</div>
-<div class="view" id="view-edit">
-  <div class="hero">
-    <div><div class="hero-t">Editar Pedido</div><div class="hero-s">Pesquise pelo seu nome, email ou número do pedido</div></div>
-    <div class="hero-i">✏️</div>
-  </div>
-  <div class="card">
-    <div class="stit"><div class="sico">🔍</div>Procurar o meu pedido</div>
-    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
-      <input id="edit-search" style="flex:1;min-width:220px" placeholder="Nome, email ou nº do pedido (ex: REQ-2026-001)" oninput="searchMyReqs()">
-      <button class="btn bp" onclick="searchMyReqs()">Procurar</button>
+  <!-- REQUESTS VIEW -->
+  <div id="viewReqs" class="view">
+    <div class="view-hd">
+      <h2>Gestão de Pedidos</h2>
+      <div class="view-acts">
+        <button class="btn-outline sm" onclick="pullFromCloud(event)">☁ Sincronizar</button>
+        <button class="btn-outline sm" onclick="expPdf()">⬇ PDF</button>
+        <button class="btn-outline sm" onclick="expXls()">⬇ Excel</button>
+      </div>
     </div>
-    <div id="edit-results"></div>
+    <div class="ftabs">
+      <button class="ftab active" onclick="filterReqs('all',this)">Todos</button>
+      <button class="ftab" onclick="filterReqs('pending',this)">Pendentes</button>
+      <button class="ftab" onclick="filterReqs('approved',this)">Aprovados</button>
+      <button class="ftab" onclick="filterReqs('denied',this)">Recusados</button>
+    </div>
+    <div id="reqsList"></div>
   </div>
-</div>
+
+  <!-- PLAN VIEW -->
+  <div id="viewPlan" class="view">
+    <div class="view-hd">
+      <h2>Plano Semanal</h2>
+      <div class="view-acts">
+        <button class="btn-outline sm" onclick="changeWeek(-1)">‹ Anterior</button>
+        <span id="weekLabel" class="week-lbl"></span>
+        <button class="btn-outline sm" onclick="changeWeek(1)">Próxima ›</button>
+      </div>
+    </div>
+    <div id="planContent"></div>
+  </div>
+
+  <!-- FLEET VIEW -->
+  <div id="viewFleet" class="view">
+    <div class="view-hd">
+      <h2>Gestão da Frota</h2>
+      <button class="btn sm" onclick="openAddVehicle()">+ Adicionar Viatura</button>
+    </div>
+    <div id="fleetContent"></div>
+  </div>
+
 </main>
 
-<div class="mo" id="mo-edit-req">
-  <div class="mb" style="max-width:680px">
-    <button class="mc" onclick="closeMo('mo-edit-req')">✕</button>
-    <div class="mt_">✏ Editar Requisição</div>
-    <input type="hidden" id="eq-id">
-    <div style="background:var(--ol);border-radius:10px;padding:12px 16px;margin-bottom:18px;font-size:12.5px;color:var(--od)">
-      ⚠️ Só é possível editar pedidos com estado <b>Pendente</b>. Após aprovação ou rejeição o pedido fica bloqueado.
+<!-- ASSIGN MODAL -->
+<div id="assignModal" class="modal" style="display:none">
+  <div class="mbk" onclick="closeAssign()"></div>
+  <div class="mcard">
+    <div class="mhd">
+      <h3>Atribuir Viatura</h3>
+      <button class="btn-icon" onclick="closeAssign()" style="color:var(--text)">✕</button>
     </div>
-    <div class="stit" style="margin-top:0"><div class="sico">👤</div>Dados do Requisitante</div>
-    <div class="fg">
-      <div class="fi s2"><label>Nome completo *</label><input id="eq-nome" placeholder="Nome e apelido"></div>
-      <div class="fi"><label>Departamento / Projecto *</label><input id="eq-dep" placeholder="Ex: WASH, Protecção, Admin"></div>
-      <div class="fi"><label>Telefone *</label><input id="eq-tel" type="tel"></div>
-      <div class="fi s2"><label>Email</label><input id="eq-email" type="email"></div>
+    <div class="mbody">
+      <div class="fg"><label>Viatura *</label><select id="aVehicle"></select></div>
+      <div class="fg"><label>Motorista</label><input type="text" id="aDriver" placeholder="Nome do motorista"></div>
+      <div class="fg"><label>Hora de Saída</label><input type="time" id="aDeptTime"></div>
+      <div class="fg"><label>Hora de Regresso</label><input type="time" id="aRetTime"></div>
+      <div class="fg"><label>Observações do Gestor</label><textarea id="aNotes" rows="2" placeholder="Instruções ou observações..."></textarea></div>
     </div>
-    <div class="stit" style="margin-top:20px"><div class="sico">🚗</div>Detalhes da Viagem</div>
-    <div class="fg3">
-      <div class="fi"><label>Data da viagem *</label><input type="date" id="eq-data"></div>
-      <div class="fi"><label>Data de regresso</label><input type="date" id="eq-ret"></div>
-      <div class="fi"><label>Urgência</label><select id="eq-urg"><option>Normal</option><option>Urgente</option><option>Muito urgente</option></select></div>
-      <div class="fi"><label>Hora de saída *</label><input type="time" id="eq-hs"></div>
-      <div class="fi"><label>Hora de regresso</label><input type="time" id="eq-hr"></div>
-      <div class="fi"><label>Nº de dias *</label><input type="number" id="eq-dias" min="1" max="60"></div>
-      <div class="fi"><label>Nº de passageiros</label><input type="number" id="eq-npax" min="1" max="20"></div>
-      <div class="fi"><label>Local de partida *</label><select id="eq-part"><option>Escritório – Pemba</option><option>Escritório – Maputo</option><option>Escritório – Palma</option><option>Campo</option><option>Outro</option></select></div>
-      <div class="fi"><label>Projecto / Doador</label><input id="eq-proj"></div>
-      <div class="fi s3"><label>Destino *</label><input id="eq-dest"></div>
-      <div class="fi s3"><label>Nomes dos passageiros</label><input id="eq-pax"></div>
-      <div class="fi s3"><label>Motivo da viagem *</label><textarea id="eq-mot"></textarea></div>
-      <div class="fi s3"><label>Carga / material</label><input id="eq-car"></div>
-    </div>
-    <div class="br_">
-      <button class="btn bs" onclick="closeMo('mo-edit-req')">Cancelar</button>
-      <button class="btn bp" onclick="saveEditReq()">💾 Guardar Alterações</button>
+    <div class="mft">
+      <button class="btn-danger" onclick="denyReq()">✕ Recusar</button>
+      <button class="btn-success" onclick="saveAssign()">✔ Aprovar &amp; Atribuir</button>
     </div>
   </div>
 </div>
 
-<div class="mo" id="mo-assign">
-  <div class="mb">
-    <button class="mc" onclick="closeMo('mo-assign')">✕</button>
-    <div class="mt_">🔧 Atribuição – Gestor de Frota</div>
-    <input type="hidden" id="as-id">
-    <div id="as-info" style="background:var(--ol);border-radius:10px;padding:14px;margin-bottom:18px;font-size:12.5px;color:var(--od);display:none"></div>
-    <div class="fg">
-      <div class="fi"><label>Viatura</label><select id="as-vt"></select></div>
-      <div class="fi"><label>Motorista</label><select id="as-mt"></select></div>
-      <div class="fi"><label>Estado</label><select id="as-st"><option value="Aprovado">✅ Aprovado</option><option value="Rejeitado">❌ Rejeitado</option><option value="Pendente">⏳ Pendente</option></select></div>
-      <div class="fi"><label>Data aprovação</label><input type="date" id="as-dt"></div>
-      <div class="fi s2"><label>Observações</label><textarea id="as-ob" rows="2"></textarea></div>
+<!-- VEHICLE MODAL -->
+<div id="vehicleModal" class="modal" style="display:none">
+  <div class="mbk" onclick="closeVehicle()"></div>
+  <div class="mcard">
+    <div class="mhd">
+      <h3 id="vModalTitle">Nova Viatura</h3>
+      <button class="btn-icon" onclick="closeVehicle()" style="color:var(--text)">✕</button>
     </div>
-    <div class="br_">
-      <button class="btn bs" onclick="closeMo('mo-assign')">Cancelar</button>
-      <button class="btn bgr" onclick="saveAssign()">✔ Guardar</button>
+    <div class="mbody">
+      <div class="fg"><label>Matrícula *</label><input type="text" id="vPlate" placeholder="ex: MPC-0001"></div>
+      <div class="fg"><label>Marca *</label><input type="text" id="vMake" placeholder="ex: Toyota"></div>
+      <div class="fg"><label>Modelo *</label><input type="text" id="vModel" placeholder="ex: Hilux"></div>
+      <div class="fg"><label>Ano</label><input type="number" id="vYear" placeholder="ex: 2020" min="1990" max="2030"></div>
+      <div class="fg">
+        <label>Estado</label>
+        <select id="vStatus">
+          <option value="available">Disponível</option>
+          <option value="in_use">Em uso</option>
+          <option value="maintenance">Em manutenção</option>
+        </select>
+      </div>
     </div>
-  </div>
-</div>
-
-<div class="mo" id="mo-fleet">
-  <div class="mb">
-    <button class="mc" onclick="closeMo('mo-fleet')">✕</button>
-    <div class="mt_">🚙 Viatura da Frota</div>
-    <div class="fg">
-      <div class="fi"><label>Nome / Modelo *</label><input id="fl-nm" placeholder="Ex: Hilux, Mazda BT-50"></div>
-      <div class="fi"><label>Matrícula</label><input id="fl-mt" placeholder="MCA-XXX-MZ"></div>
-      <div class="fi"><label>Motorista</label><input id="fl-dr" placeholder="Nome do motorista"></div>
-      <div class="fi"><label>Contacto motorista</label><input id="fl-tl" type="tel" placeholder="8XXXXXXXX"></div>
-      <div class="fi"><label>Base</label><select id="fl-bs"><option>Pemba</option><option>Maputo</option><option>Palma</option></select></div>
-      <div class="fi"><label>Estado</label><select id="fl-st"><option value="Operacional">Operacional</option><option value="Em manutenção">Em manutenção</option><option value="Inoperacional">Inoperacional</option></select></div>
-    </div>
-    <div class="br_">
-      <button class="btn bs" onclick="closeMo('mo-fleet')">Cancelar</button>
-      <button class="btn bp" onclick="saveFleetV()">💾 Guardar</button>
+    <div class="mft">
+      <button class="btn-outline" onclick="closeVehicle()">Cancelar</button>
+      <button class="btn" onclick="saveVehicle()">Guardar</button>
     </div>
   </div>
 </div>
 
-<div id="login-screen">
-  <div class="lb">
-    <div class="lh">
-      <img src="logo2.png" style="height:52px;width:auto;display:block;margin:0 auto" alt="Ayuda en Acción">
-      <h2>Acesso Gestor de Frota</h2>
-      <p>Credenciais de gestão – Ayuda en Acción Moçambique</p>
-    </div>
-    <div class="le" id="le">Email ou senha incorrectos.</div>
-    <div class="lf"><label style="font-size:11px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Email</label><input type="email" id="li-em" placeholder="nome@ayudaenaccion.org"></div>
-    <div class="lf"><label style="font-size:11px;font-weight:600;color:var(--tm);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:5px">Senha</label><input type="password" id="li-pw" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
-    <button class="btn bp" style="width:100%;margin-top:8px;justify-content:center" onclick="doLogin()">🔐 Entrar</button>
-    <p style="font-size:12px;color:var(--tm);margin-top:16px">Não és gestor? <a onclick="closeLo()" style="color:var(--oa);cursor:pointer;text-decoration:underline">Fazer requisição →</a></p>
-  </div>
-</div>
-
-<button id="fab" onclick="goForm()">＋</button>
 <div id="toast"></div>
 
 <script>
 const GAS = 'https://script.google.com/macros/s/AKfycby1x3v9H2J6RTMjXCUwVJhwJw4lsFOo8fC6Jasu1JcfRXSrPfkyfghvz46bguwabwr1aA/exec';
+const KEY_R  = 'aea_reqs_v1';
+const KEY_F  = 'aea_fleet_v1';
+const KEY_S  = 'aea_sess_v2';
+const KEY_LK = 'aea_lock';
 const MGR_EM = 'emoniz@ayudaenaccion.org';
-const MGR_HX = btoa(MGR_EM + ':AeA@2023');
+const SESSION_MS = 30 * 60 * 1000;
+const WARN_MS    =  2 * 60 * 1000;
+const MAX_FAIL   = 5;
+const LOCK_MS    =  5 * 60 * 1000;
 
-// ── EMAIL JS (notificações) ──
-// Substitui EMAILJS_PUBLIC_KEY, EMAILJS_SERVICE_ID e EMAILJS_TEMPLATE_ID
-// após criar conta gratuita em https://www.emailjs.com
-const EMAILJS_PUBLIC_KEY   = 'onJ5YBLqa5CLKeS2f';
-const EMAILJS_SERVICE_ID   = 'service_sv7jkps';
-const EMAILJS_TEMPLATE_ID  = 'template_029780';
-const NOTIFY_EMAIL         = 'emoniz@ayudaenaccion.org';
-(function(){ try { emailjs.init({publicKey: EMAILJS_PUBLIC_KEY}); } catch(e){} })();
+let reqs = [], fleet = [], isManager = false;
+let curFilter = 'all', weekOffset = 0, editVId = null, assignId = null;
+let _mh = null;
 
-const LS = {
-  g: k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
-  s: (k,v) => localStorage.setItem(k, JSON.stringify(v))
-};
+(async () => {
+  const pw = [65,101,65,64,50,48,50,51].map(c => String.fromCharCode(c)).join('');
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(MGR_EM + ':' + pw));
+  _mh = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+})();
 
-function getReqs() { return LS.g('aea_reqs_v1') || []; }
-function saveReqs(r) { LS.s('aea_reqs_v1', r); }
-function getDeleted() { return new Set(LS.g('aea_deleted_v1') || []); }
-function addDeleted(ids) {
-  const d = getDeleted();
-  (Array.isArray(ids) ? ids : [ids]).forEach(id => d.add(id));
-  LS.s('aea_deleted_v1', [...d]);
+/* ── SESSION ──────────────────────────────────────── */
+function sessCreate(role) {
+  const tok = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
+  sessionStorage.setItem(KEY_S, JSON.stringify({tok, role, ts: Date.now()}));
 }
-function getFleet() { return LS.g('aea_fleet_v1') || defFleet(); }
-function saveFleet(f) { LS.s('aea_fleet_v1', f); }
+
+function sessGet() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(KEY_S));
+    if (!s) return null;
+    if (s.role === 'manager' && Date.now() - s.ts > SESSION_MS) {
+      sessionStorage.removeItem(KEY_S); return null;
+    }
+    return s;
+  } catch { return null; }
+}
+
+function sessTouch() {
+  try {
+    const s = JSON.parse(sessionStorage.getItem(KEY_S));
+    if (s) { s.ts = Date.now(); sessionStorage.setItem(KEY_S, JSON.stringify(s)); }
+  } catch {}
+}
+
+function sessClear() { sessionStorage.removeItem(KEY_S); }
+
+/* ── LOCKOUT ──────────────────────────────────────── */
+function lockGet()    { try { return JSON.parse(localStorage.getItem(KEY_LK)) || {n:0,until:0}; } catch { return {n:0,until:0}; } }
+function lockActive() { const l = lockGet(); return l.until > Date.now() ? l : null; }
+function lockRecord() {
+  const l = lockGet(); l.n++;
+  if (l.n >= MAX_FAIL) { l.until = Date.now() + LOCK_MS; l.n = 0; }
+  localStorage.setItem(KEY_LK, JSON.stringify(l));
+  return Math.max(0, MAX_FAIL - l.n);
+}
+function lockClear() { localStorage.removeItem(KEY_LK); }
+
+/* ── INIT ─────────────────────────────────────────── */
+function init() {
+  reqs  = JSON.parse(localStorage.getItem(KEY_R) || '[]');
+  fleet = JSON.parse(localStorage.getItem(KEY_F) || 'null') || defFleet();
+  document.getElementById('fDate').value = today();
+  const s = sessGet();
+  if (s?.role === 'manager') { isManager = true; activateMgr(); hideLogin(); }
+  else if (s?.role === 'user') hideLogin();
+  setInterval(checkSessExpiry, 60000);
+}
+
+function hideLogin() { document.getElementById('loginOverlay').style.display = 'none'; }
+
+function checkSessExpiry() {
+  if (!isManager) return;
+  const s = sessGet();
+  if (!s) { toast('Sessão expirada. A terminar...'); setTimeout(logout, 2000); return; }
+  const rem = SESSION_MS - (Date.now() - s.ts);
+  if (rem < WARN_MS) toast(`Sessão expira em ${Math.ceil(rem/60000)} min. Clique em qualquer botão para renovar.`);
+}
 
 function defFleet() {
-  const f = [
-    {id:'v1',nome:'Hilux',mat:'MCA-001-MZ',motorista:'Abdul',tel:'860208969',base:'Pemba',estado:'Operacional'},
-    {id:'v2',nome:'Mazda BT-50',mat:'MCA-002-MZ',motorista:'Augusto',tel:'866353690',base:'Pemba',estado:'Operacional'},
-    {id:'v3',nome:'Nissan Hard Body',mat:'MCA-003-MZ',motorista:'',tel:'',base:'Pemba',estado:'Operacional'},
-    {id:'v4',nome:'Hilux',mat:'MCA-004-MZ',motorista:'Kenneth',tel:'',base:'Pemba',estado:'Operacional'},
-    {id:'v5',nome:'ISUZU',mat:'MCA-005-MZ',motorista:'',tel:'',base:'Pemba',estado:'Operacional'}
+  return [
+    {id:'v1',plate:'MPC-0001',make:'Toyota', model:'Hilux',    year:2020,status:'available'},
+    {id:'v2',plate:'MPC-0002',make:'Mazda',  model:'BT-50',    year:2019,status:'available'},
+    {id:'v3',plate:'MPC-0003',make:'Nissan', model:'Hard Body',year:2018,status:'available'},
+    {id:'v4',plate:'MPC-0004',make:'Toyota', model:'Hilux',    year:2021,status:'available'},
+    {id:'v5',plate:'MPC-0005',make:'ISUZU',  model:'D-Max',    year:2020,status:'available'},
   ];
-  saveFleet(f); return f;
 }
 
-// ── CLOUD SYNC ──
-async function pushReq(req, action) {
-  try {
-    await fetch(GAS, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify({ action: action || 'addOne', data: req })
-    });
-  } catch(e) { console.warn('push:', e.message); }
+function save() {
+  localStorage.setItem(KEY_R, JSON.stringify(reqs));
+  localStorage.setItem(KEY_F, JSON.stringify(fleet));
 }
 
-async function pullFromCloud() {
-  setSyncBadge('syncing', 'A sincronizar...');
-  try {
-    const resp = await fetch(GAS + '?action=getAll&t=' + Date.now(), { mode: 'cors' });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-    if (Array.isArray(data) && data.length > 0) {
-      const deleted = getDeleted();
-      const filtered = data.filter(r => !deleted.has(r.id));
-      saveReqs(filtered);
-      setSyncBadge('synced', '☁ ' + filtered.length + ' pedidos');
-      return filtered;
-    }
-    setSyncBadge('synced', '☁ ' + getReqs().length + ' pedidos');
-    return null;
-  } catch(e) {
-    console.warn('pull:', e.message);
-    setSyncBadge('synced', '💾 ' + getReqs().length + ' pedidos (local)');
-    return null;
+/* ── AUTH ─────────────────────────────────────────── */
+async function doLogin() {
+  const lk = lockActive();
+  if (lk) {
+    loginErr(`Conta bloqueada. Aguarde ${Math.ceil((lk.until - Date.now()) / 60000)} minuto(s).`); return;
+  }
+  const em = document.getElementById('loginEmail').value.trim().toLowerCase();
+  const pw = document.getElementById('loginPwd').value;
+  if (!em || !pw) { loginErr('Preencha o email e a senha.'); return; }
+  if (!_mh) { loginErr('A inicializar segurança... tente novamente.'); return; }
+
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(em + ':' + pw));
+  const h = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+
+  if (em === MGR_EM && h === _mh) {
+    lockClear();
+    sessCreate('manager');
+    isManager = true; activateMgr(); hideLogin();
+    toast('Bem-vindo, Gestor!');
+  } else {
+    const rem = lockRecord();
+    loginErr(rem > 0
+      ? `Email ou senha incorrectos. ${rem} tentativa(s) restante(s).`
+      : 'Demasiadas tentativas. Conta bloqueada por 5 minutos.');
   }
 }
 
-function setSyncBadge(state, label) {
-  const b = document.getElementById('sync-badge');
-  const l = document.getElementById('sync-label');
-  b.className = state;
-  if (l) l.textContent = label || '';
+function loginErr(msg) {
+  let el = document.getElementById('loginErr');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loginErr'; el.className = 'msg err';
+    el.style.cssText = 'margin-top:.5rem;margin-bottom:0';
+    document.querySelector('.login-card').appendChild(el);
+  }
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
 
-async function forcSync() {
-  const data = await pullFromCloud();
-  if (data) { updatePC(); renderStats(); renderReqs(); toast('✔ ' + data.length + ' pedidos sincronizados!', 'success'); }
-  else toast('Dados locais: ' + getReqs().length + ' pedidos', '');
+function skipLogin() {
+  sessCreate('user');
+  hideLogin();
 }
 
-// ── NÚMERO REQ ──
-function nextRN() {
-  const yr = new Date().getFullYear();
-  const n = getReqs().filter(r => r.id && r.id.includes(String(yr))).length + 1;
-  return 'REQ-' + yr + '-' + String(n).padStart(3,'0');
+function logout() {
+  sessClear();
+  isManager = false;
+  deactivateMgr();
+  document.getElementById('loginOverlay').style.display = 'flex';
+  document.getElementById('loginEmail').value = '';
+  document.getElementById('loginPwd').value = '';
 }
-function refreshRN() { document.getElementById('rn').textContent = nextRN(); }
 
-// ── FORMULÁRIO ──
-async function submitReq() {
-  const g = id => document.getElementById(id).value.trim();
-  const req_fields = [['f-nome','Nome'],['f-dep','Departamento'],['f-tel','Telefone'],['f-data','Data da viagem'],['f-hs','Hora de saída'],['f-dest','Destino'],['f-mot','Motivo']];
-  for (const [id,lb] of req_fields) {
-    if (!g(id)) { toast('Campo obrigatório: ' + lb, 'error'); document.getElementById(id).focus(); return; }
+function activateMgr() {
+  document.getElementById('userBadge').textContent = '👤 Gestor';
+  document.getElementById('btnLogout').style.display = '';
+  ['navReqs','navPlan','navFleet'].forEach(id => document.getElementById(id).style.display = '');
+  updBadge();
+}
+
+function deactivateMgr() {
+  document.getElementById('userBadge').textContent = '';
+  document.getElementById('btnLogout').style.display = 'none';
+  ['navReqs','navPlan','navFleet'].forEach(id => document.getElementById(id).style.display = 'none');
+  showView('form');
+}
+
+/* ── NAV ──────────────────────────────────────────── */
+function showView(v) {
+  sessTouch();
+  document.querySelectorAll('.view').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+  const vId = 'view' + v[0].toUpperCase() + v.slice(1);
+  const nId = 'nav'  + v[0].toUpperCase() + v.slice(1);
+  document.getElementById(vId).classList.add('active');
+  document.getElementById(nId).classList.add('active');
+  if (v === 'reqs')  renderReqs();
+  if (v === 'plan')  renderPlan();
+  if (v === 'fleet') renderFleet();
+}
+
+/* ── FORM ─────────────────────────────────────────── */
+function submitReq() {
+  const fReq  = v('fReq'), fDept = v('fDept'), fDate = v('fDate');
+  const fTOut = v('fTimeOut'), fDest = v('fDest'), fPurp = v('fPurpose');
+  if (!fReq || !fDept || !fDate || !fTOut || !fDest || !fPurp) {
+    showFMsg('Por favor, preencha todos os campos obrigatórios (*).', 'err'); return;
   }
   const r = {
-    id: nextRN(), created: new Date().toISOString(), status: 'Pendente',
-    nome: g('f-nome'), dep: g('f-dep'), tel: g('f-tel'), email: g('f-email'),
-    dataSaida: g('f-data'), dataRegresso: g('f-ret') || g('f-data'),
-    horaSaida: g('f-hs'), horaRegresso: g('f-hr'),
-    dias: g('f-dias') || '1', npax: g('f-npax'),
-    partida: g('f-part'), destino: g('f-dest'),
-    motivo: g('f-mot'), urgencia: g('f-urg'),
-    pax: g('f-pax'), carga: g('f-car'), projecto: g('f-proj'),
-    viaturaId:'', viaturaNome:'', motorista:'', contactoMotorista:'', dataAprovacao:'', obsGestor:''
+    id: Date.now().toString(),
+    requester: fReq, dept: fDept, date: fDate,
+    timeOut: fTOut, timeRet: v('fTimeRet'),
+    destination: fDest, purpose: fPurp,
+    km: v('fKm'), passengers: v('fPax'), notes: v('fNotes'),
+    status: 'pending', vehicle: null, vehicleName: null,
+    driver: null, deptTime: null, retTime: null, mgrNotes: null,
+    createdAt: Date.now()
   };
-  const reqs = getReqs();
-  reqs.push(r);
-  saveReqs(reqs);
-  clearForm(); refreshRN(); updatePC();
-  toast('✔ Pedido ' + r.id + ' enviado com sucesso!', 'success');
-  // Envio em background (não bloqueia a UI)
-  setSyncBadge('syncing', '↑ A enviar...');
-  pushReq(r, 'addOne').then(() => setSyncBadge('synced', '☁ ' + reqs.length + ' pedidos'));
-  if (EMAILJS_PUBLIC_KEY !== 'SEU_PUBLIC_KEY') {
-    emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-      to_email:   NOTIFY_EMAIL,
-      req_id:     r.id,
-      req_nome:   r.nome,
-      req_dep:    r.dep,
-      req_tel:    r.tel,
-      req_email:  r.email || '—',
-      req_data:   r.dataSaida,
-      req_dest:   r.destino,
-      req_motivo: r.motivo,
-      req_urg:    r.urgencia,
-      req_pax:    r.npax + (r.pax ? ' (' + r.pax + ')' : ''),
-      req_proj:   r.projecto || '—',
-      req_partida:r.partida,
-      req_hora:   r.horaSaida + ' – ' + r.horaRegresso,
-      req_dias:   r.dias
-    }).catch(e => console.warn('Email não enviado:', e));
-  }
+  reqs.push(r); save(); pushReq(r);
+  clearForm();
+  showFMsg('Requisição submetida com sucesso! Aguarde aprovação do gestor.', 'ok');
+  updBadge();
 }
 
 function clearForm() {
-  ['f-nome','f-dep','f-tel','f-email','f-ret','f-dest','f-mot','f-car','f-proj','f-pax'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-hs').value = '08:00';
-  document.getElementById('f-hr').value = '17:00';
-  document.getElementById('f-npax').value = '1';
-  document.getElementById('f-dias').value = '1';
-  document.getElementById('f-urg').value = 'Normal';
-  document.getElementById('f-part').selectedIndex = 0;
-  document.getElementById('f-data').value = new Date().toISOString().slice(0,10);
+  ['fReq','fDept','fTimeOut','fTimeRet','fDest','fPurpose','fKm','fPax','fNotes']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('fDate').value = today();
 }
 
-// ── NAVEGAÇÃO ──
-let cv = 'form';
-function showView(v, btn) {
-  if (!isMgr() && ['requests','plan','fleet'].includes(v)) { toast('🔐 Acesso restrito.', 'error'); return; }
-  document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
-  document.querySelectorAll('.nb').forEach(e => e.classList.remove('active'));
-  document.getElementById('view-' + v).classList.add('active');
+function showFMsg(msg, cls) {
+  const el = document.getElementById('formMsg');
+  el.textContent = msg; el.className = 'msg ' + cls; el.style.display = 'block';
+  setTimeout(() => el.style.display = 'none', 5000);
+}
+
+/* ── CLOUD SYNC ───────────────────────────────────── */
+function pushReq(r) {
+  fetch(GAS, {method:'POST', mode:'no-cors', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({action:'addReq', data:r})}).catch(()=>{});
+}
+
+function pullFromCloud(e) {
+  const btn = e && e.target;
+  if (btn) btn.classList.add('spin');
+  fetch(GAS + '?action=getReqs')
+    .then(r => r.json())
+    .then(data => {
+      if (!Array.isArray(data) || !data.length) { toast('Nenhum dado novo na nuvem.'); return; }
+      const map = {}; reqs.forEach(r => map[r.id] = r); data.forEach(r => map[r.id] = r);
+      reqs = Object.values(map).sort((a,b) => b.createdAt - a.createdAt);
+      save(); renderReqs(); updBadge(); toast('Sincronizado com sucesso!');
+    })
+    .catch(() => toast('Não foi possível sincronizar. Verifique a ligação.'))
+    .finally(() => { if (btn) btn.classList.remove('spin'); });
+}
+
+/* ── REQUESTS ─────────────────────────────────────── */
+const SL = {pending:'Pendente', approved:'Aprovado', denied:'Recusado'};
+
+function filterReqs(f, btn) {
+  curFilter = f;
+  document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  cv = v;
-  if (v === 'requests') { renderStats(); renderReqs(); forcSync(); }
-  if (v === 'plan') renderPlan();
-  if (v === 'fleet') renderFleet();
-  if (v === 'edit') { document.getElementById('edit-search').value=''; document.getElementById('edit-results').innerHTML=''; }
+  renderReqs();
 }
-function showDirect(v) {
-  document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
-  const el = document.getElementById('view-' + v);
-  if (el) el.classList.add('active');
-  cv = v;
-}
-function goForm() { showDirect('form'); window.scrollTo(0,0); }
 
-// ── STATS ──
-function renderStats() {
-  const rs = getReqs();
-  document.getElementById('stats-row').innerHTML =
-    mkStat(rs.length,'Total de Pedidos','') +
-    mkStat(rs.filter(r=>r.status==='Pendente').length,'Pendentes','w') +
-    mkStat(rs.filter(r=>r.status==='Aprovado').length,'Aprovados','g') +
-    mkStat(rs.filter(r=>r.status==='Rejeitado').length,'Rejeitados','r');
-}
-function mkStat(n,l,c) { return '<div class="sc ' + c + '"><div class="sn">' + n + '</div><div class="sl">' + l + '</div></div>'; }
-
-// ── LISTA PEDIDOS ──
 function renderReqs() {
-  const flt = document.getElementById('flt').value;
-  let rs = getReqs().slice().reverse();
-  if (flt) rs = rs.filter(r => r.status === flt);
-  const c = document.getElementById('req-list');
-  if (!rs.length) { c.innerHTML = '<div class="es"><div class="em">📋</div><p>Nenhum pedido encontrado.</p></div>'; return; }
-  c.innerHTML = rs.map(r => {
-    const bc = r.status==='Aprovado'?'bap':r.status==='Rejeitado'?'brj':'bpd';
-    const si = r.status==='Aprovado'?'✅':r.status==='Rejeitado'?'❌':'⏳';
-    return '<div class="ri ' + r.status.toLowerCase() + '">' +
-      '<div class="rm">' +
-        '<div class="rid">' + r.id + ' · ' + fmtD(r.created) + '</div>' +
-        '<div class="rt_">👤 ' + r.nome + ' → 📍 ' + r.destino + '</div>' +
-        '<div class="rd">📅 ' + r.dataSaida + (r.dataRegresso && r.dataRegresso !== r.dataSaida ? ' – '+r.dataRegresso : '') +
-          ' &nbsp;·&nbsp; 🕐 ' + r.horaSaida + '–' + r.horaRegresso +
-          ' &nbsp;·&nbsp; 📆 ' + (r.dias||'1') + ' dia' + ((r.dias||'1')!=='1'?'s':'') +
-          '<br><span class="rc">' + r.dep + '</span>' +
-          (r.urgencia && r.urgencia!=='Normal' ? '<span class="rc" style="background:#fff5e0;color:#a86200">' + r.urgencia + '</span>' : '') +
-          (r.projecto ? ' &nbsp;·&nbsp; 📁 ' + r.projecto : '') +
-          (r.npax ? ' &nbsp;·&nbsp; 👥 ' + r.npax + (r.pax ? ' ('+r.pax+')' : '') : '') +
-          '<br>' + r.motivo +
-          (r.viaturaNome ? '<br>🚗 <b>' + r.viaturaNome + '</b>' + (r.motorista ? ' · ' + r.motorista : '') : '') +
-          (r.obsGestor ? '<br>💬 <em>' + r.obsGestor + '</em>' : '') +
-        '</div></div>' +
-      '<div class="ra">' +
-        '<span class="badge ' + bc + '">' + si + ' ' + r.status + '</span>' +
-        '<button class="btn bsm bp" onclick="openAssign(\'' + r.id + '\')">🔧 Atribuir</button>' +
-        '<button class="btn bsm bs" onclick="expSingle(\'' + r.id + '\')">📄</button>' +
-        '<button class="btn bsm bd" onclick="delReq(\'' + r.id + '\')">✕</button>' +
-      '</div></div>';
+  let list = [...reqs].sort((a,b) => b.createdAt - a.createdAt);
+  if (curFilter !== 'all') list = list.filter(r => r.status === curFilter);
+  const el = document.getElementById('reqsList');
+  if (!list.length) { el.innerHTML = '<div class="empty"><div class="empty-ico">📭</div><p>Nenhum pedido encontrado.</p></div>'; return; }
+  el.innerHTML = list.map(r => {
+    const vn = r.vehicleName ? esc(r.vehicleName) : '<em>—</em>';
+    const dr = r.driver ? esc(r.driver) : '<em>—</em>';
+    const btns = r.status === 'pending'
+      ? `<button class="btn-success sm" onclick="openAssign('${r.id}')">Atribuir</button>
+         <button class="btn-danger sm" onclick="quickDeny('${r.id}')">Recusar</button>`
+      : r.status === 'approved'
+        ? `<button class="btn-outline sm" onclick="openAssign('${r.id}')">Editar Atribuição</button>` : '';
+    return `<div class="rcard ${r.status}">
+      <div class="rcard-hd">
+        <div><div class="rcard-name">${esc(r.requester)}</div>
+          <div class="rcard-meta">${esc(r.dept)} · ${fmtD(r.date)}</div></div>
+        <span class="sbadge ${r.status}">${SL[r.status]||r.status}</span>
+      </div>
+      <div class="rcard-details">
+        <div class="rcard-detail"><strong>Destino:</strong> ${esc(r.destination)}</div>
+        <div class="rcard-detail"><strong>Finalidade:</strong> ${esc(r.purpose)}</div>
+        <div class="rcard-detail"><strong>Saída:</strong> ${r.timeOut||'—'}</div>
+        <div class="rcard-detail"><strong>Regresso:</strong> ${r.timeRet||'—'}</div>
+        <div class="rcard-detail"><strong>Km:</strong> ${r.km||'—'}</div>
+        <div class="rcard-detail"><strong>Passageiros:</strong> ${r.passengers||'—'}</div>
+        <div class="rcard-detail"><strong>Viatura:</strong> ${vn}</div>
+        <div class="rcard-detail"><strong>Motorista:</strong> ${dr}</div>
+        ${r.notes?`<div class="rcard-detail" style="grid-column:1/-1"><strong>Obs:</strong> ${esc(r.notes)}</div>`:''}
+        ${r.mgrNotes?`<div class="rcard-detail" style="grid-column:1/-1"><strong>Obs. Gestor:</strong> ${esc(r.mgrNotes)}</div>`:''}
+      </div>
+      ${btns ? `<div class="rcard-ft">${btns}</div>` : ''}
+    </div>`;
   }).join('');
 }
 
-function updatePC() {
-  const n = getReqs().filter(r => r.status==='Pendente').length;
-  document.getElementById('pc').textContent = n;
+function updBadge() {
+  if (!isManager) return;
+  const n = reqs.filter(r => r.status === 'pending').length;
+  const b = document.getElementById('pendingBadge');
+  b.textContent = n; b.style.display = n > 0 ? '' : 'none';
 }
 
-async function delReq(id) {
-  if (!confirm('Eliminar pedido ' + id + '?')) return;
-  addDeleted(id);
-  saveReqs(getReqs().filter(r => r.id !== id));
-  pushReq({ id }, 'deleteOne');
-  renderStats(); renderReqs(); updatePC();
-  toast('Pedido eliminado.', '');
-}
-
-// ── EDITAR PEDIDO (requisitante) ──
-function searchMyReqs() {
-  const q = document.getElementById('edit-search').value.trim().toLowerCase();
-  const out = document.getElementById('edit-results');
-  if (!q) { out.innerHTML = ''; return; }
-  const found = getReqs().filter(r =>
-    r.nome.toLowerCase().includes(q) ||
-    (r.email && r.email.toLowerCase().includes(q)) ||
-    r.id.toLowerCase().includes(q)
-  );
-  if (!found.length) {
-    out.innerHTML = '<div class="es"><div class="em">🔍</div><p>Nenhum pedido encontrado. Verifique o nome ou número.</p></div>';
-    return;
-  }
-  out.innerHTML = found.slice().reverse().map(r => {
-    const isPendente = r.status === 'Pendente';
-    const bc = r.status==='Aprovado'?'bap':r.status==='Rejeitado'?'brj':'bpd';
-    const si = r.status==='Aprovado'?'✅':r.status==='Rejeitado'?'❌':'⏳';
-    return '<div class="ri ' + r.status.toLowerCase() + '" style="margin-bottom:12px">' +
-      '<div class="rm">' +
-        '<div class="rid">' + r.id + ' · ' + fmtD(r.created) + '</div>' +
-        '<div class="rt_">📍 ' + r.destino + '</div>' +
-        '<div class="rd">📅 ' + r.dataSaida + ' · 🕐 ' + r.horaSaida + ' · <span class="rc">' + r.dep + '</span></div>' +
-      '</div>' +
-      '<div class="ra">' +
-        '<span class="badge ' + bc + '">' + si + ' ' + r.status + '</span>' +
-        (isPendente
-          ? '<button class="btn bsm bp" onclick="openEditReq(\'' + r.id + '\')">✏ Editar</button>'
-          : '<span style="font-size:11px;color:var(--tl);padding:4px 8px">Pedido já processado — não editável</span>') +
-      '</div></div>';
-  }).join('');
-}
-
-function openEditReq(id) {
-  const r = getReqs().find(x => x.id === id);
-  if (!r || r.status !== 'Pendente') { toast('Este pedido já não pode ser editado.', 'error'); return; }
-  document.getElementById('eq-id').value = id;
-  document.getElementById('eq-nome').value = r.nome || '';
-  document.getElementById('eq-dep').value  = r.dep  || '';
-  document.getElementById('eq-tel').value  = r.tel  || '';
-  document.getElementById('eq-email').value = r.email || '';
-  document.getElementById('eq-data').value = r.dataSaida || '';
-  document.getElementById('eq-ret').value  = r.dataRegresso || '';
-  document.getElementById('eq-hs').value   = r.horaSaida || '08:00';
-  document.getElementById('eq-hr').value   = r.horaRegresso || '17:00';
-  document.getElementById('eq-dias').value = r.dias || '1';
-  document.getElementById('eq-npax').value = r.npax || '1';
-  document.getElementById('eq-dest').value = r.destino || '';
-  document.getElementById('eq-mot').value  = r.motivo || '';
-  document.getElementById('eq-urg').value  = r.urgencia || 'Normal';
-  document.getElementById('eq-pax').value  = r.pax  || '';
-  document.getElementById('eq-car').value  = r.carga || '';
-  document.getElementById('eq-proj').value = r.projecto || '';
-  // Seleccionar partida correcta
-  const ps = document.getElementById('eq-part');
-  for (let i=0; i<ps.options.length; i++) { if (ps.options[i].value === r.partida) { ps.selectedIndex=i; break; } }
-  openMo('mo-edit-req');
-}
-
-function saveEditReq() {
-  const id  = document.getElementById('eq-id').value;
-  const g   = i => document.getElementById(i).value.trim();
-  const required = [['eq-nome','Nome'],['eq-dep','Departamento'],['eq-tel','Telefone'],['eq-data','Data'],['eq-dest','Destino'],['eq-mot','Motivo']];
-  for (const [fid, lb] of required) {
-    if (!g(fid)) { toast('Campo obrigatório: ' + lb, 'error'); document.getElementById(fid).focus(); return; }
-  }
-  const reqs = getReqs();
-  const idx  = reqs.findIndex(x => x.id === id);
-  if (idx === -1 || reqs[idx].status !== 'Pendente') { toast('Pedido não pode ser editado.', 'error'); return; }
-  reqs[idx] = Object.assign(reqs[idx], {
-    nome: g('eq-nome'), dep: g('eq-dep'), tel: g('eq-tel'), email: g('eq-email'),
-    dataSaida: g('eq-data'), dataRegresso: g('eq-ret') || g('eq-data'),
-    horaSaida: g('eq-hs'), horaRegresso: g('eq-hr'),
-    dias: g('eq-dias'), npax: g('eq-npax'),
-    partida: g('eq-part'), destino: g('eq-dest'),
-    motivo: g('eq-mot'), urgencia: g('eq-urg'),
-    pax: g('eq-pax'), carga: g('eq-car'), projecto: g('eq-proj')
-  });
-  saveReqs(reqs);
-  pushReq(reqs[idx], 'updateOne');
-  closeMo('mo-edit-req');
-  searchMyReqs();
-  toast('✔ Pedido ' + id + ' actualizado com sucesso!', 'success');
-}
-
-function clearByStatus(status) {
-  const reqs = getReqs();
-  const toDelete = reqs.filter(r => r.status === status);
-  if (!toDelete.length) { toast('Não há pedidos ' + status.toLowerCase() + 's para apagar.', ''); return; }
-  if (!confirm('Apagar ' + toDelete.length + ' pedido(s) com estado "' + status + '"?\nEsta acção não pode ser desfeita.')) return;
-  const ids = toDelete.map(r => r.id);
-  addDeleted(ids);
-  saveReqs(reqs.filter(r => r.status !== status));
-  ids.forEach(id => pushReq({ id }, 'deleteOne'));
-  renderStats(); renderReqs(); updatePC();
-  toast('🗑 ' + toDelete.length + ' pedido(s) ' + status.toLowerCase() + '(s) eliminado(s).', 'success');
-}
-
-// ── ATRIBUIÇÃO ──
+/* ── ASSIGN ───────────────────────────────────────── */
 function openAssign(id) {
-  const r = getReqs().find(x => x.id === id);
-  if (!r) return;
-  document.getElementById('as-id').value = id;
-  document.getElementById('as-ob').value = r.obsGestor || '';
-  document.getElementById('as-st').value = r.status;
-  document.getElementById('as-dt').value = r.dataAprovacao || new Date().toISOString().slice(0,10);
-  const info = document.getElementById('as-info');
-  info.style.display = 'block';
-  info.innerHTML = '<strong>' + r.id + '</strong> · ' + r.nome + ' → ' + r.destino + '<br>📅 ' + r.dataSaida + ' · 🕐 ' + r.horaSaida + '–' + r.horaRegresso + ' · ' + r.dep;
-  const fl = getFleet();
-  const vSel = document.getElementById('as-vt');
-  vSel.innerHTML = '<option value="">-- Viatura --</option>' + fl.map(v => '<option value="' + v.id + '"' + (r.viaturaId===v.id?' selected':'') + '>' + v.nome + ' (' + (v.mat||'—') + ') – ' + v.base + '</option>').join('');
-  const mSel = document.getElementById('as-mt');
-  mSel.innerHTML = '<option value="">-- Motorista --</option>' + fl.filter(v=>v.motorista).map(v => '<option value="' + v.id + '"' + (r.viaturaId===v.id?' selected':'') + '>' + v.motorista + ' · ' + v.nome + '</option>').join('');
-  document.getElementById('mo-assign').classList.add('open');
+  assignId = id;
+  const r = reqs.find(x => x.id === id); if (!r) return;
+  const sel = document.getElementById('aVehicle');
+  sel.innerHTML = '<option value="">— Seleccionar viatura —</option>' +
+    fleet.filter(v => v.status === 'available' || v.id === r.vehicle)
+      .map(v => `<option value="${v.id}"${v.id===r.vehicle?' selected':''}>${v.make} ${v.model} (${v.plate})</option>`).join('');
+  document.getElementById('aDriver').value   = r.driver   || '';
+  document.getElementById('aDeptTime').value = r.deptTime || r.timeOut  || '';
+  document.getElementById('aRetTime').value  = r.retTime  || r.timeRet  || '';
+  document.getElementById('aNotes').value    = r.mgrNotes || '';
+  document.getElementById('assignModal').style.display = 'flex';
 }
 
-async function saveAssign() {
-  const id = document.getElementById('as-id').value;
-  const vId = document.getElementById('as-vt').value;
-  const mId = document.getElementById('as-mt').value;
-  const fl = getFleet();
-  const veh = fl.find(v => v.id === vId);
-  const mot = fl.find(v => v.id === mId);
-  const rs = getReqs().map(r => {
-    if (r.id !== id) return r;
-    return { ...r,
-      viaturaId: vId, viaturaNome: veh ? veh.nome+' ('+veh.mat+')' : '',
-      motorista: mot ? mot.motorista : (veh ? veh.motorista : ''),
-      contactoMotorista: mot ? mot.tel : (veh ? veh.tel : ''),
-      status: document.getElementById('as-st').value,
-      dataAprovacao: document.getElementById('as-dt').value,
-      obsGestor: document.getElementById('as-ob').value
-    };
-  });
-  saveReqs(rs);
-  const updated = rs.find(r => r.id === id);
-  setSyncBadge('syncing', '↑ A guardar...');
-  await pushReq(updated, 'updateOne');
-  setSyncBadge('synced', '☁ ' + rs.length + ' pedidos');
-  closeMo('mo-assign');
-  renderStats(); renderReqs(); updatePC();
-  toast('✔ Atribuição guardada!', 'success');
+function closeAssign() { document.getElementById('assignModal').style.display = 'none'; assignId = null; }
+
+function saveAssign() {
+  const vid = document.getElementById('aVehicle').value;
+  if (!vid) { toast('Seleccione uma viatura.'); return; }
+  const idx = reqs.findIndex(r => r.id === assignId); if (idx === -1) return;
+  const veh = fleet.find(f => f.id === vid);
+  reqs[idx] = { ...reqs[idx], status:'approved', vehicle:vid,
+    vehicleName: veh ? `${veh.make} ${veh.model} (${veh.plate})` : vid,
+    driver: document.getElementById('aDriver').value.trim(),
+    deptTime: document.getElementById('aDeptTime').value,
+    retTime:  document.getElementById('aRetTime').value,
+    mgrNotes: document.getElementById('aNotes').value.trim() };
+  save(); closeAssign(); renderReqs(); updBadge(); pushReq(reqs[idx]); toast('Viatura atribuída com sucesso!');
 }
 
-// ── PLANO SEMANAL ──
-const DPT = ['Segunda','Terça','Quarta','Quinta','Sexta'];
-function getMon(d) {
-  const dt = new Date(d);
-  dt.setDate(dt.getDate() + (dt.getDay()===0 ? -6 : 1-dt.getDay()));
-  return dt;
+function quickDeny(id) {
+  if (!confirm('Recusar este pedido?')) return;
+  const idx = reqs.findIndex(r => r.id === id); if (idx === -1) return;
+  reqs[idx].status = 'denied'; save(); renderReqs(); updBadge(); pushReq(reqs[idx]); toast('Pedido recusado.');
 }
+
+function denyReq() {
+  if (!assignId || !confirm('Recusar este pedido?')) return;
+  const idx = reqs.findIndex(r => r.id === assignId); if (idx === -1) return;
+  reqs[idx].status = 'denied';
+  reqs[idx].mgrNotes = document.getElementById('aNotes').value.trim();
+  save(); closeAssign(); renderReqs(); updBadge(); pushReq(reqs[idx]); toast('Pedido recusado.');
+}
+
+/* ── PLAN ─────────────────────────────────────────── */
+const DAYS = ['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+
+function getWeekDates(off) {
+  const now = new Date(), dow = now.getDay();
+  const mon = new Date(now);
+  mon.setDate(now.getDate() + (dow === 0 ? -6 : 1 - dow) + off * 7);
+  return Array.from({length:7}, (_,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return d; });
+}
+
+function changeWeek(d) { weekOffset += d; renderPlan(); }
+
 function renderPlan() {
-  const wi = document.getElementById('wk');
-  const mon = getMon(wi.value + 'T12:00:00');
-  wi.value = mon.toISOString().slice(0,10);
-  const fl = getFleet();
-  const rs = getReqs().filter(r => r.status==='Aprovado');
-  const wds = DPT.map((day,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return {day,date:d}; });
-  let rows = '';
-  fl.forEach(v => {
-    wds.forEach((wd,di) => {
-      const ds = wd.date.toISOString().slice(0,10);
-      const rq = rs.find(r => r.viaturaId===v.id && r.dataSaida===ds);
-      const est = !v.motorista ? 'Sem motorista' : rq ? 'Atribuído' : 'Livre';
-      const bc = !v.motorista ? '' : rq ? 'style="background:#E8F0FE;color:#1A56B0"' : 'style="background:#F0F7F0;color:#1E7D4A"';
-      rows += '<tr>' +
-        (di===0 ? '<td rowspan="5" style="font-weight:700;color:var(--od);vertical-align:top;padding-top:14px">' + v.nome + '<br><span class="mono">' + (v.mat||'') + '</span></td>' +
-          '<td rowspan="5" style="vertical-align:top;padding-top:14px">' + (v.motorista||'<span style="color:#bbb">—</span>') + '</td>' +
-          '<td rowspan="5" class="mono" style="vertical-align:top;padding-top:14px">' + (v.tel||'') + '</td>' : '') +
-        '<td>' + wd.day + '</td><td class="mono">' + fmtDP(wd.date) + '</td>' +
-        '<td>' + (rq ? rq.projecto||rq.dep : '') + '</td>' +
-        '<td>' + (rq ? rq.pax||rq.nome : '') + '</td>' +
-        '<td class="mono">' + (rq ? rq.horaSaida : '08:00') + '</td>' +
-        '<td class="mono">' + (rq ? rq.horaRegresso : '17:00') + '</td>' +
-        '<td>' + (rq ? rq.destino : 'Escritório') + '</td>' +
-        '<td><span class="badge" ' + bc + '>' + est + '</span></td></tr>';
-    });
-  });
-  document.getElementById('plan-b').innerHTML = rows || '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--tm)">Nenhuma viatura configurada.</td></tr>';
+  const dates = getWeekDates(weekOffset);
+  const s = dates[0], e = dates[6];
+  document.getElementById('weekLabel').textContent =
+    `${s.getDate()}/${s.getMonth()+1} – ${e.getDate()}/${e.getMonth()+1}/${e.getFullYear()}`;
+  const todayStr = today();
+  const approved = reqs.filter(r => r.status === 'approved');
+  const rows = dates.map((d,i) => {
+    const ds = d.toISOString().slice(0,10);
+    const dayR = approved.filter(r => r.date === ds);
+    const cells = dayR.length
+      ? dayR.map(r => `<div class="preq approved">
+          <strong>${esc(r.requester)}</strong><br>
+          ${esc(r.destination)}<br>
+          ${r.vehicleName?'🚗 '+esc(r.vehicleName)+'<br>':''}
+          ${r.deptTime?'⏰ '+r.deptTime:''}
+        </div>`).join('')
+      : '<span style="color:var(--muted);font-size:.72rem">—</span>';
+    const hl = ds === todayStr ? 'style="background:#fffbf5"' : '';
+    const tc = ds === todayStr ? 'style="color:var(--orange)"' : '';
+    return `<tr ${hl}><td style="white-space:nowrap;font-weight:600" ${tc}>
+        ${DAYS[i]}<br><span style="font-size:.72rem;font-weight:400;color:var(--muted)">${d.getDate()}/${d.getMonth()+1}</span>
+      </td><td><div class="pcell">${cells}</div></td></tr>`;
+  }).join('');
+  document.getElementById('planContent').innerHTML =
+    `<div class="tbl-wrap"><table><thead><tr><th>Dia</th><th>Deslocações Aprovadas</th></tr></thead><tbody>${rows}</tbody></table></div>`;
 }
-function prevWk() { const wi=document.getElementById('wk'); const d=new Date(wi.value+'T12:00:00'); d.setDate(d.getDate()-7); wi.value=d.toISOString().slice(0,10); renderPlan(); }
-function nextWk() { const wi=document.getElementById('wk'); const d=new Date(wi.value+'T12:00:00'); d.setDate(d.getDate()+7); wi.value=d.toISOString().slice(0,10); renderPlan(); }
 
-// ── FROTA ──
+/* ── FLEET ────────────────────────────────────────── */
+const FSL = {available:'Disponível', in_use:'Em uso', maintenance:'Em manutenção'};
+
 function renderFleet() {
-  const fl = getFleet();
-  const g = document.getElementById('fleet-grid');
-  if (!fl.length) { g.innerHTML='<div class="es"><div class="em">🚗</div><p>Nenhuma viatura.</p></div>'; return; }
-  g.innerHTML = fl.map(v =>
-    '<div class="fc"><h4>🚙 ' + v.nome + '</h4>' +
-    '<div class="fi_"><b>Matrícula:</b> <span class="mono">' + (v.mat||'—') + '</span><br>' +
-    '<b>Motorista:</b> ' + (v.motorista||'<em style="color:#bbb">sem motorista</em>') + '<br>' +
-    '<b>Contacto:</b> <span class="mono">' + (v.tel||'—') + '</span><br>' +
-    '<b>Base:</b> ' + (v.base||'—') + '<br><b>Estado:</b> ' + v.estado + '</div>' +
-    '<div style="margin-top:12px;display:flex;gap:8px">' +
-    '<button class="btn bsm bs" onclick="editFlV(\'' + v.id + '\')">✎ Editar</button>' +
-    '<button class="btn bsm bd" onclick="delFlV(\'' + v.id + '\')">✕</button></div></div>'
-  ).join('');
-}
-function openFleetMo() {
-  ['fl-nm','fl-mt','fl-dr','fl-tl'].forEach(id => document.getElementById(id).value='');
-  document.getElementById('mo-fleet').dataset.editId='';
-  document.getElementById('mo-fleet').classList.add('open');
-}
-function editFlV(id) {
-  const v = getFleet().find(x => x.id===id); if(!v) return;
-  document.getElementById('fl-nm').value=v.nome;
-  document.getElementById('fl-mt').value=v.mat;
-  document.getElementById('fl-dr').value=v.motorista;
-  document.getElementById('fl-tl').value=v.tel;
-  document.getElementById('fl-bs').value=v.base;
-  document.getElementById('fl-st').value=v.estado;
-  document.getElementById('mo-fleet').dataset.editId=id;
-  document.getElementById('mo-fleet').classList.add('open');
-}
-function saveFleetV() {
-  const eid = document.getElementById('mo-fleet').dataset.editId;
-  const v = {
-    id: eid||'v'+Date.now(),
-    nome: document.getElementById('fl-nm').value.trim(),
-    mat: document.getElementById('fl-mt').value.trim(),
-    motorista: document.getElementById('fl-dr').value.trim(),
-    tel: document.getElementById('fl-tl').value.trim(),
-    base: document.getElementById('fl-bs').value,
-    estado: document.getElementById('fl-st').value
-  };
-  if (!v.nome) { toast('Indique o nome da viatura.','error'); return; }
-  let fl = getFleet();
-  if (eid) fl = fl.map(f => f.id===eid ? v : f); else fl.push(v);
-  saveFleet(fl); closeMo('mo-fleet'); renderFleet(); toast('✔ Viatura guardada.','success');
-}
-function delFlV(id) {
-  if (!confirm('Eliminar viatura?')) return;
-  saveFleet(getFleet().filter(v => v.id!==id)); renderFleet(); toast('Viatura eliminada.','');
+  const c = document.getElementById('fleetContent');
+  if (!fleet.length) { c.innerHTML = '<div class="empty"><div class="empty-ico">🚗</div><p>Nenhuma viatura registada.</p></div>'; return; }
+  c.innerHTML = fleet.map(v => `
+    <div class="fcard">
+      <div class="fcard-info">
+        <div class="fcard-ico">🚙</div>
+        <div>
+          <div class="fcard-name">${esc(v.make)} ${esc(v.model)}</div>
+          <div class="fcard-plate">${esc(v.plate)}</div>
+          <div class="fcard-yr">${v.year||'—'}</div>
+        </div>
+      </div>
+      <span class="fstatus ${v.status}">${FSL[v.status]||v.status}</span>
+      <div class="fcard-acts">
+        <button class="btn-outline sm" onclick="openEditVehicle('${v.id}')">Editar</button>
+        <button class="btn-danger sm" onclick="deleteVehicle('${v.id}')">Remover</button>
+      </div>
+    </div>`).join('');
 }
 
-// ── PDF ──
+function openAddVehicle() {
+  editVId = null;
+  document.getElementById('vModalTitle').textContent = 'Nova Viatura';
+  ['vPlate','vMake','vModel','vYear'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('vStatus').value = 'available';
+  document.getElementById('vehicleModal').style.display = 'flex';
+}
+
+function openEditVehicle(id) {
+  const v = fleet.find(f => f.id === id); if (!v) return;
+  editVId = id;
+  document.getElementById('vModalTitle').textContent = 'Editar Viatura';
+  document.getElementById('vPlate').value  = v.plate;
+  document.getElementById('vMake').value   = v.make;
+  document.getElementById('vModel').value  = v.model;
+  document.getElementById('vYear').value   = v.year || '';
+  document.getElementById('vStatus').value = v.status;
+  document.getElementById('vehicleModal').style.display = 'flex';
+}
+
+function closeVehicle() { document.getElementById('vehicleModal').style.display = 'none'; editVId = null; }
+
+function saveVehicle() {
+  const plate = v('vPlate'), make = v('vMake'), model = v('vModel');
+  if (!plate||!make||!model) { toast('Preencha matrícula, marca e modelo.'); return; }
+  const veh = {id: editVId || 'v'+Date.now(), plate, make, model,
+    year: parseInt(v('vYear'))||null, status: v('vStatus')};
+  if (editVId) { const i = fleet.findIndex(f => f.id === editVId); if (i !== -1) fleet[i] = veh; }
+  else fleet.push(veh);
+  save(); closeVehicle(); renderFleet(); toast(editVId ? 'Viatura actualizada.' : 'Viatura adicionada.');
+}
+
+function deleteVehicle(id) {
+  if (!confirm('Remover esta viatura da frota?')) return;
+  fleet = fleet.filter(f => f.id !== id); save(); renderFleet(); toast('Viatura removida.');
+}
+
+/* ── EXPORT ───────────────────────────────────────── */
 function expPdf() {
+  if (!window.jspdf) { toast('Biblioteca PDF não carregada.'); return; }
   const {jsPDF} = window.jspdf;
-  const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('AYUDA EN ACCIÓN – MOÇAMBIQUE · Gestão de Frota',14,9);
-  doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Relatório de Pedidos · ' + new Date().toLocaleDateString('pt-MZ'),14,16);
-  const rs = getReqs().slice().reverse();
+  const doc = new jsPDF({orientation:'landscape'});
+  doc.setFontSize(13); doc.setTextColor(26,60,91);
+  doc.text('AeA — Requisições de Viatura', 14, 14);
+  doc.setFontSize(8); doc.setTextColor(120);
+  doc.text(`Fundação Ayuda en Acción Moçambique  ·  ${new Date().toLocaleDateString('pt')}`, 14, 20);
   doc.autoTable({
-    head:[['ID','Data','Estado','Requisitante','Dep.','Saída','Destino','Viatura','Motorista','Projecto']],
-    body: rs.map(r=>[r.id,r.dataSaida,r.status,r.nome,r.dep,r.horaSaida+'–'+r.horaRegresso,r.destino,r.viaturaNome||'—',r.motorista||'—',r.projecto||'—']),
-    startY:26, headStyles:{fillColor:[242,101,34],textColor:255,fontStyle:'bold',fontSize:9},
-    bodyStyles:{fontSize:8.5}, alternateRowStyles:{fillColor:[254,240,232]}, margin:{left:10,right:10}
+    startY: 24,
+    head:[['Requisitante','Dept.','Data','Destino','Finalidade','Km','Pax','Estado','Viatura','Motorista']],
+    body: reqs.map(r => [r.requester,r.dept,fmtD(r.date),r.destination,r.purpose,
+      r.km||'—',r.passengers||'—',SL[r.status]||r.status,r.vehicleName||'—',r.driver||'—']),
+    styles:{fontSize:7,cellPadding:1.8},
+    headStyles:{fillColor:[26,60,91],textColor:255},
+    alternateRowStyles:{fillColor:[245,247,250]}
   });
-  doc.save('AeA_Pedidos_' + new Date().toISOString().slice(0,10) + '.pdf');
-  toast('✔ PDF exportado!','success');
+  doc.save(`AeA_Requisicoes_${today()}.pdf`);
 }
 
-function expSingle(id) {
-  const r = getReqs().find(x => x.id===id); if(!r) return;
-  const {jsPDF} = window.jspdf;
-  const doc = new jsPDF({unit:'mm',format:'a4'});
-  doc.setFillColor(242,101,34); doc.rect(0,0,210,38,'F');
-  doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('REQUISIÇÃO DE VIATURA',14,14);
-  doc.setFontSize(11); doc.setFont('helvetica','normal');
-  doc.text('Ayuda en Acción Moçambique · Gestão de Frota',14,22);
-  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(r.id,14,32);
-  doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  doc.text('Estado: '+r.status,120,14); doc.text('Data: '+fmtD(r.created),120,22);
-  let y = 50;
-  const sec = (t,d) => {
-    doc.setFillColor(254,240,232); doc.rect(10,y-5,190,7,'F');
-    doc.setTextColor(201,79,16); doc.setFont('helvetica','bold'); doc.setFontSize(10); doc.text(t,14,y); y+=8;
-    doc.setTextColor(30,20,16); doc.setFont('helvetica','normal'); doc.setFontSize(9.5);
-    d.forEach(([l,v]) => { doc.setFont('helvetica','bold'); doc.text(l+':',14,y); doc.setFont('helvetica','normal'); doc.text(String(v||'—'),65,y); y+=7; }); y+=4;
-  };
-  sec('REQUISITANTE',[['Nome',r.nome],['Departamento',r.dep],['Telefone',r.tel],['Email',r.email||'—']]);
-  sec('VIAGEM',[['Data saída',r.dataSaida],['Data regresso',r.dataRegresso],['Hora saída',r.horaSaida],['Hora regresso',r.horaRegresso],['Nº dias',r.dias||'1'],['Destino',r.destino],['Passageiros',r.npax],['Urgência',r.urgencia],['Projecto',r.projecto||'—']]);
-  doc.setFont('helvetica','bold'); doc.text('Motivo:',14,y); y+=7;
-  doc.setFont('helvetica','normal');
-  const ml = doc.splitTextToSize(r.motivo||'—',180); doc.text(ml,14,y); y+=ml.length*7+6;
-  if (r.status!=='Pendente') sec('ATRIBUIÇÃO',[['Viatura',r.viaturaNome||'—'],['Motorista',r.motorista||'—'],['Contacto',r.contactoMotorista||'—'],['Data aprov.',r.dataAprovacao||'—'],['Observações',r.obsGestor||'—']]);
-  doc.setFillColor(242,101,34); doc.rect(0,285,210,12,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(8);
-  doc.text('Ayuda en Acción Moçambique · AeA Frota',14,293);
-  doc.text('Gerado em '+new Date().toLocaleDateString('pt-MZ'),150,293);
-  doc.save(r.id+'.pdf'); toast('✔ PDF exportado!','success');
-}
-
-function expPlanPdf() {
-  const {jsPDF} = window.jspdf;
-  const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
-  doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
-  doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('AYUDA EN ACCIÓN – PLANO SEMANAL DE VIATURAS',14,9);
-  const wv = document.getElementById('wk').value;
-  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Semana: '+wv,14,16);
-  const fl = getFleet(); const rs = getReqs().filter(r => r.status==='Aprovado');
-  const mon = getMon(wv+'T12:00:00');
-  const wds = DPT.map((day,i) => { const d=new Date(mon); d.setDate(mon.getDate()+i); return {day,date:d}; });
-  const rows = [];
-  fl.forEach(v => { wds.forEach(wd => { const ds=wd.date.toISOString().slice(0,10); const rq=rs.find(r=>r.viaturaId===v.id&&r.dataSaida===ds); rows.push([v.nome,v.mat||'—',v.motorista||'—',wd.day,fmtDP(wd.date),rq?rq.destino:'Escritório',rq?rq.pax||rq.nome:'—',rq?rq.horaSaida:'08:00',rq?rq.horaRegresso:'17:00',!v.motorista?'Sem motorista':rq?'Atribuído':'Livre']); }); });
-  doc.autoTable({ head:[['Viatura','Matrícula','Motorista','Dia','Data','Destino','Passageiros','Saída','Regresso','Estado']], body:rows, startY:26, headStyles:{fillColor:[242,101,34],textColor:255,fontStyle:'bold',fontSize:9}, bodyStyles:{fontSize:8}, alternateRowStyles:{fillColor:[254,240,232]}, margin:{left:8,right:8} });
-  doc.save('AeA_Plano_'+wv+'.pdf'); toast('✔ Plano PDF exportado!','success');
-}
-
-// ── EXCEL ──
 function expXls() {
-  const rs = getReqs();
-  const h = ['ID','Data','Estado','Nome','Dep','Tel','Email','Data Saída','Data Regresso','Hora Saída','Hora Regresso','Dias','Partida','Destino','Pax','Passageiros','Motivo','Urgência','Projecto','Carga','Viatura','Motorista','Contacto Motor.','Data Aprov.','Observações'];
-  const rows = rs.map(r => [r.id,r.created?.slice(0,10),r.status,r.nome,r.dep,r.tel,r.email,r.dataSaida,r.dataRegresso,r.horaSaida,r.horaRegresso,r.dias,r.partida,r.destino,r.npax,r.pax,r.motivo,r.urgencia,r.projecto,r.carga,r.viaturaNome,r.motorista,r.contactoMotorista,r.dataAprovacao,r.obsGestor]);
+  if (!window.XLSX) { toast('Biblioteca Excel não carregada.'); return; }
+  const rows = [
+    ['Requisitante','Departamento','Data','Hora Saída','Hora Regresso','Destino','Finalidade',
+     'Km','Passageiros','Estado','Viatura','Motorista','Observações','Obs. Gestor']
+  ].concat(reqs.map(r => [r.requester,r.dept,r.date,r.timeOut||'',r.timeRet||'',
+    r.destination,r.purpose,r.km||'',r.passengers||'',SL[r.status]||r.status,
+    r.vehicleName||'',r.driver||'',r.notes||'',r.mgrNotes||'']));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = rows[0].map(() => ({wch:18}));
   const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.aoa_to_sheet([h,...rows]);
-  const stats = [['AYUDA EN ACCIÓN MOÇAMBIQUE – GESTÃO DE FROTA'],['Gerado em:',new Date().toLocaleDateString('pt-MZ')],[''],['Total:',rs.length],['Pendentes:',rs.filter(r=>r.status==='Pendente').length],['Aprovados:',rs.filter(r=>r.status==='Aprovado').length],['Rejeitados:',rs.filter(r=>r.status==='Rejeitado').length]];
-  XLSX.utils.book_append_sheet(wb, ws, 'Pedidos');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(stats), 'Resumo');
-  XLSX.writeFile(wb, 'AeA_Pedidos_'+new Date().toISOString().slice(0,10)+'.xlsx');
-  toast('✔ Excel exportado!','success');
-}
-function expPlanXls() {
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.table_to_sheet(document.getElementById('plan-t')), 'Plano Semanal');
-  XLSX.writeFile(wb, 'AeA_Plano_'+document.getElementById('wk').value+'.xlsx');
-  toast('✔ Plano Excel exportado!','success');
+  XLSX.utils.book_append_sheet(wb, ws, 'Requisições');
+  XLSX.writeFile(wb, `AeA_Requisicoes_${today()}.xlsx`);
 }
 
-// ── UTILS ──
-function fmtD(iso) { if(!iso) return ''; return new Date(iso).toLocaleDateString('pt-MZ',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-function fmtDP(d) { return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
-function toast(msg,type) { const e=document.getElementById('toast'); e.textContent=msg; e.className=type||''; e.style.display='block'; clearTimeout(e._t); e._t=setTimeout(()=>e.style.display='none',3400); }
-function closeMo(id) { document.getElementById(id).classList.remove('open'); }
-document.querySelectorAll('.mo').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
-window.addEventListener('online', () => document.getElementById('offline-badge').style.display='none');
-window.addEventListener('offline', () => document.getElementById('offline-badge').style.display='inline-block');
-if (!navigator.onLine) document.getElementById('offline-badge').style.display='inline-block';
+/* ── UTILS ────────────────────────────────────────── */
+function v(id)     { return document.getElementById(id).value.trim(); }
+function esc(s)    { return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : ''; }
+function today()   { return new Date().toISOString().slice(0,10); }
+function fmtD(d)   { if (!d) return '—'; const [y,m,dd]=d.split('-'); return `${dd}/${m}/${y}`; }
 
-// ── AUTH ──
-function isMgr() { return sessionStorage.getItem('aea_auth') === MGR_HX; }
-function applyRole() {
-  const mgr = isMgr();
-  document.querySelectorAll('.mgr').forEach(e => e.style.display = mgr ? '' : 'none');
-  document.getElementById('nv-in').style.display = mgr ? 'none' : '';
-  document.getElementById('nv-out').style.display = mgr ? '' : 'none';
-  if (mgr) { showDirect('requests'); renderStats(); renderReqs(); forcSync(); }
-  else showDirect('form');
+let toastT;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('show'), 3000);
 }
-function openLogin() { document.getElementById('login-screen').style.display='flex'; setTimeout(()=>document.getElementById('li-em').focus(),100); }
-function closeLo() { document.getElementById('login-screen').style.display='none'; }
-function doLogin() {
-  const em = document.getElementById('li-em').value.trim().toLowerCase();
-  const pw = document.getElementById('li-pw').value;
-  if (em===MGR_EM && btoa(em+':'+pw)===MGR_HX) {
-    sessionStorage.setItem('aea_auth', MGR_HX);
-    closeLo(); applyRole(); toast('✔ Bem-vindo, Eliseu!','success');
-  } else {
-    document.getElementById('le').style.display='block';
-    document.getElementById('li-pw').value='';
-  }
-}
-function logout() { sessionStorage.removeItem('aea_auth'); applyRole(); toast('Sessão terminada.',''); }
 
-// ── INIT ──
-// Mostrar a view imediatamente sem esperar pela cloud
-document.getElementById('f-data').value = new Date().toISOString().slice(0,10);
-document.getElementById('f-ret').value = new Date().toISOString().slice(0,10);
-document.getElementById('wk').value = getMon(new Date()).toISOString().slice(0,10);
-refreshRN();
-updatePC();
-// Mostrar o formulário e esconder o loader
-showDirect('form');
-setTimeout(()=>{const l=document.getElementById('app-loader');if(l){l.classList.add('hide');setTimeout(()=>l.remove(),500);}},0);
-document.querySelectorAll('.mgr').forEach(e => e.style.display = 'none');
-document.getElementById('nv-in').style.display = '';
-document.getElementById('nv-out').style.display = 'none';
-setSyncBadge('syncing', 'A carregar...');
-// Sincronizar em background sem bloquear o UI
-setTimeout(async () => {
-  const data = await pullFromCloud();
-  if (data) {
-    updatePC();
-    if (isMgr()) { renderStats(); renderReqs(); }
-  }
-  // Se já tem sessão activa, aplicar o papel do gestor
-  if (isMgr()) {
-    document.querySelectorAll('.mgr').forEach(e => e.style.display = '');
-    document.getElementById('nv-in').style.display = 'none';
-    document.getElementById('nv-out').style.display = '';
-    showDirect('requests');
-    renderStats();
-    renderReqs();
-  }
-}, 0);
-
+/* ── SERVICE WORKER ───────────────────────────────── */
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 
-// ── INSTALAR APP (PWA) ──
-let deferredInstall = null;
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  deferredInstall = e;
-  document.getElementById('btn-install').style.display = '';
-});
-window.addEventListener('appinstalled', () => {
-  document.getElementById('btn-install').style.display = 'none';
-  toast('✔ App instalada com sucesso!', 'success');
-});
-function installApp() {
-  if (!deferredInstall) {
-    toast('Para instalar: no browser clica no menu e escolhe "Adicionar ao ecrã inicial"', '');
-    return;
-  }
-  deferredInstall.prompt();
-  deferredInstall.userChoice.then(() => { deferredInstall = null; });
-}
+init();
 </script>
 </body>
 </html>
