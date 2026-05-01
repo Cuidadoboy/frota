@@ -204,6 +204,7 @@ tr:hover td{background:var(--ol)}
       <div class="fi"><label>Data da viagem *</label><input type="date" id="f-data"></div>
       <div class="fi"><label>Data de regresso</label><input type="date" id="f-ret"></div>
       <div class="fi"><label>Urgência</label><select id="f-urg"><option>Normal</option><option>Urgente</option><option>Muito urgente</option></select></div>
+      <div class="fi"><label>Motorista Solicitado</label><select id="f-mots"><option value="">-- Qualquer motorista --</option></select></div>
       <div class="fi"><label>Hora de saída *</label><input type="time" id="f-hs" value="08:00"></div>
       <div class="fi"><label>Hora de regresso</label><input type="time" id="f-hr" value="17:00"></div>
       <div class="fi"><label>Nº de dias *</label><input type="number" id="f-dias" min="1" max="60" value="1"></div>
@@ -256,7 +257,7 @@ tr:hover td{background:var(--ol)}
       <button class="btn bs bsm" onclick="prevWk()">← Anterior</button>
       <button class="btn bs bsm" onclick="nextWk()">Próxima →</button>
     </div>
-    <div class="tw"><table id="plan-t"><thead><tr><th>Viatura</th><th>Motorista</th><th>Contacto</th><th>Dia</th><th>Data</th><th>Projecto</th><th>Passageiros</th><th>Saída</th><th>Regresso</th><th>Destino</th><th>Estado</th></tr></thead><tbody id="plan-b"></tbody></table></div>
+    <div class="tw"><table id="plan-t"><thead><tr><th>Motorista</th><th>Contacto</th><th>Viatura</th><th>Dia</th><th>Data</th><th>Destino</th><th>Horário</th><th>Passageiros</th><th>Projecto</th><th>Estado</th></tr></thead><tbody id="plan-b"></tbody></table></div>
   </div>
 </div>
 
@@ -318,6 +319,7 @@ tr:hover td{background:var(--ol)}
       <div class="fi"><label>Data da viagem *</label><input type="date" id="eq-data"></div>
       <div class="fi"><label>Data de regresso</label><input type="date" id="eq-ret"></div>
       <div class="fi"><label>Urgência</label><select id="eq-urg"><option>Normal</option><option>Urgente</option><option>Muito urgente</option></select></div>
+      <div class="fi"><label>Motorista Solicitado</label><select id="eq-mots"><option value="">-- Qualquer motorista --</option></select></div>
       <div class="fi"><label>Hora de saída *</label><input type="time" id="eq-hs"></div>
       <div class="fi"><label>Hora de regresso</label><input type="time" id="eq-hr"></div>
       <div class="fi"><label>Nº de dias *</label><input type="number" id="eq-dias" min="1" max="60"></div>
@@ -558,6 +560,22 @@ function defFleet() {
   saveFleet(f); return f;
 }
 
+let LOGO1_B64 = null, LOGO2_B64 = null;
+async function loadLogos() {
+  const toB64 = url => fetch(url).then(r => r.blob()).then(b => new Promise((res, rej) => {
+    const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b);
+  })).catch(() => null);
+  [LOGO1_B64, LOGO2_B64] = await Promise.all([toB64('logo1.png'), toB64('logo2.png')]);
+}
+
+function populateMotoristaSel(selId) {
+  const fl = getFleet();
+  const drivers = [...new Set(fl.filter(v => v.motorista).map(v => v.motorista))];
+  const sel = document.getElementById(selId);
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Qualquer motorista --</option>' + drivers.map(d => '<option value="' + d + '">' + d + '</option>').join('');
+}
+
 // ── CLOUD SYNC ──
 async function pushReq(req, action) {
   try {
@@ -628,6 +646,7 @@ async function submitReq() {
     partida: g('f-part'), destino: g('f-dest'),
     motivo: g('f-mot'), urgencia: g('f-urg'),
     pax: g('f-pax'), carga: g('f-car'), projecto: g('f-proj'),
+    motoristaSolicitado: g('f-mots'),
     viaturaId:'', viaturaNome:'', motorista:'', contactoMotorista:'', dataAprovacao:'', obsGestor:''
   };
   const reqs = getReqs();
@@ -660,7 +679,7 @@ async function submitReq() {
 }
 
 function clearForm() {
-  ['f-nome','f-dep','f-tel','f-email','f-ret','f-dest','f-mot','f-car','f-proj','f-pax'].forEach(id => document.getElementById(id).value = '');
+  ['f-nome','f-dep','f-tel','f-email','f-ret','f-dest','f-mot','f-car','f-proj','f-pax','f-mots'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-hs').value = '08:00';
   document.getElementById('f-hr').value = '17:00';
   document.getElementById('f-npax').value = '1';
@@ -809,6 +828,8 @@ function openEditReq(id) {
   // Seleccionar partida correcta
   const ps = document.getElementById('eq-part');
   for (let i=0; i<ps.options.length; i++) { if (ps.options[i].value === r.partida) { ps.selectedIndex=i; break; } }
+  populateMotoristaSel('eq-mots');
+  document.getElementById('eq-mots').value = r.motoristaSolicitado || '';
   openMo('mo-edit-req');
 }
 
@@ -829,7 +850,8 @@ function saveEditReq() {
     dias: g('eq-dias'), npax: g('eq-npax'),
     partida: g('eq-part'), destino: g('eq-dest'),
     motivo: g('eq-mot'), urgencia: g('eq-urg'),
-    pax: g('eq-pax'), carga: g('eq-car'), projecto: g('eq-proj')
+    pax: g('eq-pax'), carga: g('eq-car'), projecto: g('eq-proj'),
+    motoristaSolicitado: g('eq-mots')
   });
   saveReqs(reqs);
   pushReq(reqs[idx], 'updateOne');
@@ -910,29 +932,44 @@ function renderPlan() {
   const mon = getMon(wi.value + 'T12:00:00');
   wi.value = mon.toISOString().slice(0,10);
   const fl = getFleet();
-  const rs = getReqs().filter(r => r.status==='Aprovado');
-  const wds = DPT.map((day,i) => { const d = new Date(mon); d.setDate(mon.getDate()+i); return {day,date:d}; });
+  const rs = getReqs().filter(r => r.status === 'Aprovado');
+  const wds = DPT.map((day, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return {day, date: d}; });
+  const withDriver = fl.filter(v => v.motorista);
+  const noDriver = fl.filter(v => !v.motorista);
   let rows = '';
-  fl.forEach(v => {
-    wds.forEach((wd,di) => {
-      const ds = wd.date.toISOString().slice(0,10);
-      const rq = rs.find(r => r.viaturaId===v.id && r.dataSaida===ds);
-      const est = !v.motorista ? 'Sem motorista' : rq ? 'Atribuído' : 'Livre';
-      const bc = !v.motorista ? '' : rq ? 'style="background:#E8F0FE;color:#1A56B0"' : 'style="background:#F0F7F0;color:#1E7D4A"';
+  withDriver.forEach(v => {
+    wds.forEach((wd, di) => {
+      const ds = wd.date.toISOString().slice(0, 10);
+      const rq = rs.find(r => r.viaturaId === v.id && r.dataSaida === ds);
+      const bc = rq ? 'style="background:#E8F0FE;color:#1A56B0"' : 'style="background:#F0F7F0;color:#1E7D4A"';
       rows += '<tr>' +
-        (di===0 ? '<td rowspan="5" style="font-weight:700;color:var(--od);vertical-align:top;padding-top:14px">' + v.nome + '<br><span class="mono">' + (v.mat||'') + '</span></td>' +
-          '<td rowspan="5" style="vertical-align:top;padding-top:14px">' + (v.motorista||'<span style="color:#bbb">—</span>') + '</td>' +
-          '<td rowspan="5" class="mono" style="vertical-align:top;padding-top:14px">' + (v.tel||'') + '</td>' : '') +
-        '<td>' + wd.day + '</td><td class="mono">' + fmtDP(wd.date) + '</td>' +
-        '<td>' + (rq ? rq.projecto||rq.dep : '') + '</td>' +
-        '<td>' + (rq ? rq.pax||rq.nome : '') + '</td>' +
-        '<td class="mono">' + (rq ? rq.horaSaida : '08:00') + '</td>' +
-        '<td class="mono">' + (rq ? rq.horaRegresso : '17:00') + '</td>' +
-        '<td>' + (rq ? rq.destino : 'Escritório') + '</td>' +
-        '<td><span class="badge" ' + bc + '>' + est + '</span></td></tr>';
+        (di === 0 ?
+          '<td rowspan="5" style="font-weight:700;vertical-align:top;padding-top:14px">' + v.motorista + '</td>' +
+          '<td rowspan="5" class="mono" style="vertical-align:top;padding-top:14px">' + (v.tel || '—') + '</td>' +
+          '<td rowspan="5" style="vertical-align:top;padding-top:14px;color:var(--od)">' + v.nome + '<br><span class="mono" style="font-size:10px">' + (v.mat || '—') + '</span></td>' : '') +
+        '<td>' + wd.day + '</td>' +
+        '<td class="mono">' + fmtDP(wd.date) + '</td>' +
+        '<td>' + (rq ? rq.destino : '—') + '</td>' +
+        '<td class="mono">' + (rq ? rq.horaSaida + '–' + rq.horaRegresso : '—') + '</td>' +
+        '<td>' + (rq ? (rq.pax || rq.nome || '—') : '—') + '</td>' +
+        '<td>' + (rq ? (rq.projecto || rq.dep || '—') : '—') + '</td>' +
+        '<td><span class="badge" ' + bc + '>' + (rq ? 'Atribuído' : 'Livre') + '</span></td></tr>';
     });
   });
-  document.getElementById('plan-b').innerHTML = rows || '<tr><td colspan="11" style="text-align:center;padding:40px;color:var(--tm)">Nenhuma viatura configurada.</td></tr>';
+  noDriver.forEach(v => {
+    wds.forEach((wd, di) => {
+      rows += '<tr>' +
+        (di === 0 ?
+          '<td rowspan="5" style="color:#bbb;vertical-align:top;padding-top:14px">—</td>' +
+          '<td rowspan="5" class="mono" style="color:#bbb;vertical-align:top;padding-top:14px">—</td>' +
+          '<td rowspan="5" style="vertical-align:top;padding-top:14px;color:var(--od)">' + v.nome + '<br><span class="mono" style="font-size:10px">' + (v.mat || '—') + '</span></td>' : '') +
+        '<td>' + wd.day + '</td>' +
+        '<td class="mono">' + fmtDP(wd.date) + '</td>' +
+        '<td>—</td><td class="mono">—</td><td>—</td><td>—</td>' +
+        '<td><span class="badge" style="background:#f3f4f6;color:#9ca3af">Sem motorista</span></td></tr>';
+    });
+  });
+  document.getElementById('plan-b').innerHTML = rows || '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--tm)">Nenhuma viatura configurada.</td></tr>';
 }
 function prevWk() { const wi=document.getElementById('wk'); const d=new Date(wi.value+'T12:00:00'); d.setDate(d.getDate()-7); wi.value=d.toISOString().slice(0,10); renderPlan(); }
 function nextWk() { const wi=document.getElementById('wk'); const d=new Date(wi.value+'T12:00:00'); d.setDate(d.getDate()+7); wi.value=d.toISOString().slice(0,10); renderPlan(); }
@@ -1038,18 +1075,16 @@ async function saveManage() {
   toast('✔ ' + checked.size + ' pedido(s) mantido(s). ' + toDelete.length + ' eliminado(s).', 'success');
 }
 
-function addPdfLogo(doc, x, y, w, h) {
-  if (_logoB64) try { doc.addImage(_logoB64, 'PNG', x, y, w, h); } catch(e) {}
-}
 function expPdf() {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
-  addPdfLogo(doc, 258, 3, 30, 15);
+  if (LOGO1_B64) doc.addImage(LOGO1_B64,'PNG',6,3,16,13);
+  if (LOGO2_B64) doc.addImage(LOGO2_B64,'PNG',272,3,16,13);
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('AYUDA EN ACCIÓN – MOÇAMBIQUE · Gestão de Frota',14,9);
+  doc.text('AYUDA EN ACCIÓN – MOÇAMBIQUE · Gestão de Frota', LOGO1_B64?26:14, 9);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Relatório de Pedidos · ' + new Date().toLocaleDateString('pt-MZ'),14,16);
+  doc.text('Relatório de Pedidos · ' + new Date().toLocaleDateString('pt-MZ'), LOGO1_B64?26:14, 16);
   const rs = getReqs().slice().reverse();
   doc.autoTable({
     head:[['ID','Data','Estado','Requisitante','Dep.','Saída','Destino','Viatura','Motorista','Projecto']],
@@ -1066,12 +1101,13 @@ function expSingle(id) {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,210,38,'F');
-  addPdfLogo(doc, 172, 4, 28, 14);
+  if (LOGO1_B64) doc.addImage(LOGO1_B64,'PNG',6,4,20,16);
+  if (LOGO2_B64) doc.addImage(LOGO2_B64,'PNG',184,4,20,16);
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('REQUISIÇÃO DE VIATURA',14,14);
+  doc.text('REQUISIÇÃO DE VIATURA', LOGO1_B64?32:14, 14);
   doc.setFontSize(11); doc.setFont('helvetica','normal');
-  doc.text('Ayuda en Acción Moçambique · Gestão de Frota',14,22);
-  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(r.id,14,32);
+  doc.text('Ayuda en Acción Moçambique · Gestão de Frota', LOGO1_B64?32:14, 22);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(r.id, LOGO1_B64?32:14, 32);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   doc.text('Estado: '+r.status,120,14); doc.text('Data: '+fmtD(r.created),120,22);
   let y = 50;
@@ -1098,17 +1134,19 @@ function expPlanPdf() {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
-  addPdfLogo(doc, 258, 3, 30, 15);
+  if (LOGO1_B64) doc.addImage(LOGO1_B64,'PNG',6,3,16,13);
+  if (LOGO2_B64) doc.addImage(LOGO2_B64,'PNG',272,3,16,13);
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('AYUDA EN ACCIÓN – PLANO SEMANAL DE VIATURAS',14,9);
+  doc.text('AYUDA EN ACCIÓN – PLANO SEMANAL DE VIATURAS', LOGO1_B64?26:14, 9);
   const wv = document.getElementById('wk').value;
-  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Semana: '+wv,14,16);
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Semana: '+wv, LOGO1_B64?26:14, 16);
   const fl = getFleet(); const rs = getReqs().filter(r => r.status==='Aprovado');
   const mon = getMon(wv+'T12:00:00');
   const wds = DPT.map((day,i) => { const d=new Date(mon); d.setDate(mon.getDate()+i); return {day,date:d}; });
   const rows = [];
-  fl.forEach(v => { wds.forEach(wd => { const ds=wd.date.toISOString().slice(0,10); const rq=rs.find(r=>r.viaturaId===v.id&&r.dataSaida===ds); rows.push([v.nome,v.mat||'—',v.motorista||'—',wd.day,fmtDP(wd.date),rq?rq.destino:'Escritório',rq?rq.pax||rq.nome:'—',rq?rq.horaSaida:'08:00',rq?rq.horaRegresso:'17:00',!v.motorista?'Sem motorista':rq?'Atribuído':'Livre']); }); });
-  doc.autoTable({ head:[['Viatura','Matrícula','Motorista','Dia','Data','Destino','Passageiros','Saída','Regresso','Estado']], body:rows, startY:26, headStyles:{fillColor:[242,101,34],textColor:255,fontStyle:'bold',fontSize:9}, bodyStyles:{fontSize:8}, alternateRowStyles:{fillColor:[254,240,232]}, margin:{left:8,right:8} });
+  fl.filter(v => v.motorista).forEach(v => { wds.forEach(wd => { const ds=wd.date.toISOString().slice(0,10); const rq=rs.find(r=>r.viaturaId===v.id&&r.dataSaida===ds); rows.push([v.motorista,v.tel||'—',v.nome+' ('+(v.mat||'—')+')',wd.day,fmtDP(wd.date),rq?rq.destino:'—',rq?rq.horaSaida+'–'+rq.horaRegresso:'—',rq?rq.pax||rq.nome||'—':'—',rq?rq.projecto||rq.dep||'—':'—',rq?'Atribuído':'Livre']); }); });
+  fl.filter(v => !v.motorista).forEach(v => { wds.forEach(wd => { rows.push(['—','—',v.nome+' ('+(v.mat||'—')+')',wd.day,fmtDP(wd.date),'—','—','—','—','Sem motorista']); }); });
+  doc.autoTable({ head:[['Motorista','Contacto','Viatura','Dia','Data','Destino','Horário','Passageiros','Projecto','Estado']], body:rows, startY:26, headStyles:{fillColor:[242,101,34],textColor:255,fontStyle:'bold',fontSize:9}, bodyStyles:{fontSize:8}, alternateRowStyles:{fillColor:[254,240,232]}, margin:{left:8,right:8} });
   doc.save('AeA_Plano_'+wv+'.pdf'); toast('✔ Plano PDF exportado!','success');
 }
 
@@ -1192,6 +1230,8 @@ document.getElementById('f-ret').value = new Date().toISOString().slice(0,10);
 document.getElementById('wk').value = getMon(new Date()).toISOString().slice(0,10);
 refreshRN();
 updatePC();
+populateMotoristaSel('f-mots');
+loadLogos();
 // Mostrar o formulário e esconder o loader
 showDirect('form');
 setTimeout(()=>{const l=document.getElementById('app-loader');if(l){l.classList.add('hide');setTimeout(()=>l.remove(),500);}},0);
