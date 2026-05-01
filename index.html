@@ -423,17 +423,11 @@ const SESS_MS  = 30 * 60 * 1000;
 const WARN_MS  =  2 * 60 * 1000;
 const MAX_FAIL = 5;
 const LOCK_MS  =  5 * 60 * 1000;
-let _mh = null, _logoB64 = null;
+let _mh = null;
 (async () => {
   const pw = [65,101,65,64,50,48,50,51].map(c => String.fromCharCode(c)).join('');
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(MGR_EM + ':' + pw));
   _mh = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-})();
-(async () => {
-  try {
-    const blob = await (await fetch('./logo1.png')).blob();
-    _logoB64 = await new Promise(res => { const r = new FileReader(); r.onload = e => res(e.target.result); r.readAsDataURL(blob); });
-  } catch(e) {}
 })();
 
 // ── SESSION ──
@@ -1189,6 +1183,7 @@ function expPlanXls() {
 function fmtD(iso) { if(!iso) return ''; return new Date(iso).toLocaleDateString('pt-MZ',{day:'2-digit',month:'2-digit',year:'numeric'}); }
 function fmtDP(d) { return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear(); }
 function toast(msg,type) { const e=document.getElementById('toast'); e.textContent=msg; e.className=type||''; e.style.display='block'; clearTimeout(e._t); e._t=setTimeout(()=>e.style.display='none',3400); }
+function openMo(id) { document.getElementById(id).classList.add('open'); }
 function closeMo(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.mo').forEach(o => o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); }));
 window.addEventListener('online', () => document.getElementById('offline-badge').style.display='none');
