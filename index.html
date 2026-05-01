@@ -764,7 +764,7 @@ async function delReq(id) {
   addDeleted(id);
   saveReqs(getReqs().filter(r => r.id !== id));
   pushReq({ id }, 'deleteOne');
-  renderStats(); renderReqs(); updatePC();
+  renderStats(); renderReqs(); updatePC(); refreshRN();
   toast('Pedido eliminado.', '');
 }
 
@@ -866,7 +866,7 @@ function clearByStatus(status) {
   addDeleted(ids);
   saveReqs(reqs.filter(r => r.status !== status));
   ids.forEach(id => pushReq({ id }, 'deleteOne'));
-  renderStats(); renderReqs(); updatePC();
+  renderStats(); renderReqs(); updatePC(); refreshRN();
   toast('🗑 ' + toDelete.length + ' pedido(s) ' + status.toLowerCase() + '(s) eliminado(s).', 'success');
 }
 
@@ -878,7 +878,7 @@ function clearAll() {
   addDeleted(ids);
   saveReqs([]);
   ids.forEach(id => pushReq({ id }, 'deleteOne'));
-  renderStats(); renderReqs(); updatePC();
+  renderStats(); renderReqs(); updatePC(); refreshRN();
   toast('🗑 Todos os pedidos foram eliminados.', 'success');
 }
 
@@ -1080,7 +1080,7 @@ async function saveManage() {
   saveReqs(reqs.filter(r => checked.has(r.id)));
   toDelete.forEach(r => pushReq({id: r.id}, 'deleteOne'));
   closeMo('mo-manage');
-  renderStats(); renderReqs(); updatePC();
+  renderStats(); renderReqs(); updatePC(); refreshRN();
   toast('✔ ' + checked.size + ' pedido(s) mantido(s). ' + toDelete.length + ' eliminado(s).', 'success');
 }
 
