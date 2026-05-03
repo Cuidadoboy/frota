@@ -557,13 +557,6 @@ function defFleet() {
   saveFleet(f); return f;
 }
 
-let LOGO1_B64 = null, LOGO2_B64 = null;
-async function loadLogos() {
-  const toB64 = url => fetch(url).then(r => r.blob()).then(b => new Promise((res, rej) => {
-    const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b);
-  })).catch(() => null);
-  [LOGO1_B64, LOGO2_B64] = await Promise.all([toB64('logo1.png'), toB64('logo2.png')]);
-}
 
 function populateMotoristaSel(selId) {
   const fl = getFleet();
@@ -620,13 +613,15 @@ function syncDatas(p, trig) {
 // ── CLOUD SYNC ──
 async function pushReq(req, action) {
   const act = action || 'addOne';
-  const payload = JSON.stringify(req);
-  // Envia action+data no URL E no body:
-  // - URL params: lidos por e.parameter no doGet/doPost (sobrevivem ao redirect POST→GET do GAS)
-  // - Body JSON: lido por e.postData.contents no doPost (caso sem redirect)
-  const url = GAS + '?action=' + act + '&data=' + encodeURIComponent(payload);
+  const dataStr = JSON.stringify(req);
+  // 3 camadas de compatibilidade com GAS:
+  // 1) URL params (?action=&data=) — lidos por e.parameter mesmo após redirect POST→GET
+  // 2) URLSearchParams body — lido por e.parameter no doPost sem redirect
+  // 3) JSON body como string — lido por e.postData.contents no doPost
+  const url = GAS + '?action=' + act + '&data=' + encodeURIComponent(dataStr);
+  const form = new URLSearchParams({ action: act, data: dataStr });
   try {
-    await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: act, data: req }) });
+    await fetch(url, { method: 'POST', mode: 'no-cors', body: form });
   } catch(e) { console.warn('push:', e.message); }
 }
 
@@ -1218,12 +1213,10 @@ function expPdf() {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
-  if (LOGO1_B64) doc.addImage(LOGO1_B64,'PNG',6,3,16,13);
-  if (LOGO2_B64) doc.addImage(LOGO2_B64,'PNG',272,3,16,13);
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('AYUDA EN ACCIÓN – MOÇAMBIQUE · Gestão de Frota', LOGO1_B64?26:14, 9);
+  doc.text('AYUDA EN ACCIÓN – MOÇAMBIQUE · Gestão de Frota', 14, 9);
   doc.setFontSize(10); doc.setFont('helvetica','normal');
-  doc.text('Relatório de Pedidos · ' + new Date().toLocaleDateString('pt-MZ'), LOGO1_B64?26:14, 16);
+  doc.text('Relatório de Pedidos · ' + new Date().toLocaleDateString('pt-MZ'), 14, 16);
   const rs = getReqs().slice().reverse();
   doc.autoTable({
     head:[['ID','Data','Estado','Requisitante','Dep.','Saída','Destino','Viatura','Motorista','Projecto']],
@@ -1240,13 +1233,11 @@ function expSingle(id) {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,210,38,'F');
-  if (LOGO1_B64) doc.addImage(LOGO1_B64,'PNG',6,4,20,16);
-  if (LOGO2_B64) doc.addImage(LOGO2_B64,'PNG',184,4,20,16);
   doc.setTextColor(255,255,255); doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  doc.text('REQUISIÇÃO DE VIATURA', LOGO1_B64?32:14, 14);
+  doc.text('REQUISIÇÃO DE VIATURA', 14, 14);
   doc.setFontSize(11); doc.setFont('helvetica','normal');
-  doc.text('Ayuda en Acción Moçambique · Gestão de Frota', LOGO1_B64?32:14, 22);
-  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(r.id, LOGO1_B64?32:14, 32);
+  doc.text('Ayuda en Acción Moçambique · Gestão de Frota', 14, 22);
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(r.id, 14, 32);
   doc.setFont('helvetica','normal'); doc.setFontSize(9);
   doc.text('Estado: '+r.status,120,14); doc.text('Data: '+fmtD(r.created),120,22);
   let y = 50;
@@ -1273,12 +1264,10 @@ function expPlanPdf() {
   const {jsPDF} = window.jspdf;
   const doc = new jsPDF({orientation:'landscape',unit:'mm',format:'a4'});
   doc.setFillColor(242,101,34); doc.rect(0,0,297,22,'F');
-  if (LOGO1_B64) doc.addImage(LOGO1_B64,'PNG',6,3,16,13);
-  if (LOGO2_B64) doc.addImage(LOGO2_B64,'PNG',272,3,16,13);
   doc.setTextColor(255,255,255); doc.setFontSize(13); doc.setFont('helvetica','bold');
-  doc.text('AYUDA EN ACCIÓN – PLANO SEMANAL DE VIATURAS', LOGO1_B64?26:14, 9);
+  doc.text('AYUDA EN ACCIÓN – PLANO SEMANAL DE VIATURAS', 14, 9);
   const wv = document.getElementById('wk').value;
-  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Semana: '+wv, LOGO1_B64?26:14, 16);
+  doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Semana: '+wv, 14, 16);
   const fl = getFleet(); const rs = getReqs().filter(r => r.status==='Aprovado');
   const mon = getMon(wv+'T12:00:00');
   const wds = DPT.map((day,i) => { const d=new Date(mon); d.setDate(mon.getDate()+i); return {day,date:d}; });
@@ -1394,7 +1383,7 @@ document.getElementById('wk').value = getMon(new Date()).toISOString().slice(0,1
 refreshRN();
 updatePC();
 populateMotoristaSel('f-mots');
-loadLogos();
+
 // Mostrar o formulário e esconder o loader
 showDirect('form');
 setTimeout(()=>{const l=document.getElementById('app-loader');if(l){l.classList.add('hide');setTimeout(()=>l.remove(),500);}},0);
