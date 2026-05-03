@@ -611,14 +611,12 @@ function syncDatas(p, trig) {
 }
 
 // ── HELPERS ──
-const PENDING_MS = 30 * 60 * 1000;
 function getPendingLocal(excludeIds) {
   const deleted = getDeleted();
   return getReqs().filter(r => {
     if (deleted.has(r.id)) return false;
     if (excludeIds && excludeIds.has(r.id)) return false;
-    const age = r.created ? Date.now() - new Date(r.created).getTime() : Infinity;
-    return age < PENDING_MS;
+    return true;
   });
 }
 function refreshMgr() { renderStats(); renderReqs(); updatePC(); refreshRN(); }
