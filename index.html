@@ -592,14 +592,16 @@ async function pullFromCloud() {
       const deleted = getDeleted();
       const filtered = data.filter(r => !deleted.has(r.id));
       saveReqs(filtered);
-      setSyncBadge('synced', '☁ ' + filtered.length + ' pedidos');
+      const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+      setSyncBadge('synced', '☁ ' + filtered.length + ' · ' + ts);
       return filtered;
     }
-    setSyncBadge('synced', '☁ ' + getReqs().length + ' pedidos');
+    const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    setSyncBadge('synced', '☁ ' + getReqs().length + ' · ' + ts);
     return null;
   } catch(e) {
     console.warn('pull:', e.message);
-    setSyncBadge('synced', '💾 ' + getReqs().length + ' pedidos (local)');
+    setSyncBadge('error', '💾 local · ' + getReqs().length);
     return null;
   }
 }
@@ -651,7 +653,7 @@ async function submitReq() {
   toast('✔ Pedido ' + r.id + ' enviado com sucesso!', 'success');
   // Envio em background (não bloqueia a UI)
   setSyncBadge('syncing', '↑ A enviar...');
-  pushReq(r, 'addOne').then(() => setSyncBadge('synced', '☁ ' + reqs.length + ' pedidos'));
+  pushReq(r, 'addOne').then(() => setTimeout(autoSyncTick, 3000));
   if (EMAILJS_PUBLIC_KEY !== 'SEU_PUBLIC_KEY') {
     emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       to_email:   NOTIFY_EMAIL,
@@ -923,10 +925,10 @@ async function saveAssign() {
   const updated = rs.find(r => r.id === id);
   setSyncBadge('syncing', '↑ A guardar...');
   await pushReq(updated, 'updateOne');
-  setSyncBadge('synced', '☁ ' + rs.length + ' pedidos');
   closeMo('mo-assign');
   renderStats(); renderReqs(); updatePC();
   toast('✔ Atribuição guardada!', 'success');
+  setTimeout(autoSyncTick, 3000);
 }
 
 // ── PLANO SEMANAL ──
@@ -1234,6 +1236,7 @@ function applyRole() {
   document.getElementById('nv-out').style.display = mgr ? '' : 'none';
   if (mgr) { showDirect('requests'); renderStats(); renderReqs(); forcSync(); }
   else showDirect('form');
+  startAutoSync(); // reiniciar com intervalo correcto para o papel actual
 }
 function openLogin() { document.getElementById('login-screen').style.display='flex'; setTimeout(()=>document.getElementById('li-em').focus(),100); }
 function closeLo() { document.getElementById('login-screen').style.display='none'; }
@@ -1316,18 +1319,29 @@ if ('serviceWorker' in navigator) {
   });
 }
 
-// ── AUTO-SYNC (gestor) ──
-// Quando o gestor está na vista de pedidos, sincronizar automaticamente a cada 60 segundos
+// ── AUTO-SYNC ──
 let _autoSyncInterval = null;
-function startAutoSync() {
-  if (_autoSyncInterval) return;
-  _autoSyncInterval = setInterval(async () => {
-    if (isMgr() && cv === 'requests') {
-      const data = await pullFromCloud();
-      if (data) { renderStats(); renderReqs(); updatePC(); }
-    }
-  }, 60000);
+async function autoSyncTick() {
+  const data = await pullFromCloud();
+  if (data) {
+    updatePC(); refreshRN();
+    if (isMgr() && cv === 'requests') { renderStats(); renderReqs(); }
+  }
 }
+function startAutoSync() {
+  if (_autoSyncInterval) clearInterval(_autoSyncInterval);
+  // Gestor: a cada 20s; utilizador: a cada 45s
+  _autoSyncInterval = setInterval(autoSyncTick, isMgr() ? 20000 : 45000);
+}
+
+// Sincronizar imediatamente ao voltar para o separador
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) autoSyncTick();
+});
+
+// Sincronizar ao receber foco na janela
+window.addEventListener('focus', () => autoSyncTick());
+
 startAutoSync();
 
 // Mostrar badge de alertas de segurança se já houver registos
