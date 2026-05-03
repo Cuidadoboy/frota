@@ -619,11 +619,12 @@ function syncDatas(p, trig) {
 
 // ── CLOUD SYNC ──
 async function pushReq(req, action) {
+  const act = action || 'addOne';
   try {
-    await fetch(GAS, {
+    await fetch(GAS + '?action=' + act, {
       method: 'POST',
       mode: 'no-cors',
-      body: JSON.stringify({ action: action || 'addOne', data: req })
+      body: JSON.stringify({ action: act, data: req })
     });
   } catch(e) { console.warn('push:', e.message); }
 }
@@ -645,10 +646,15 @@ async function pullFromCloud() {
         const age = r.created ? Date.now() - new Date(r.created).getTime() : Infinity;
         return age < PENDING_MS;
       });
+      // Re-enviar registos locais que ainda não chegaram à nuvem (retry push)
+      if (localOnly.length > 0) {
+        localOnly.forEach(r => pushReq(r, 'addOne'));
+      }
       const merged = [...cloudFiltered, ...localOnly];
       saveReqs(merged);
       const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-      setSyncBadge('synced', '☁ ' + merged.length + ' · ' + ts);
+      const pendingTxt = localOnly.length > 0 ? ' ↑' + localOnly.length : '';
+      setSyncBadge(localOnly.length > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + pendingTxt + ' · ' + ts);
       return merged;
     }
     const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
