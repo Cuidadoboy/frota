@@ -628,30 +628,66 @@ function calcTotalDias(rq) {
 }
 
 // ── CLOUD SYNC ──
-function pushReq(req, action) {
-  const act = action || 'addOne';
-  const dataStr = JSON.stringify(req);
 
-  // Método 1 — form em iframe oculto: o mais fiável para GAS (contorna CORS e redirect POST→GET)
+// Fila persistente de envios pendentes (sobrevive a reloads)
+function getQ()   { return LS.g('aea_push_q') || []; }
+function saveQ(q) { LS.s('aea_push_q', q); }
+
+// Disparar para GAS via dois canais simultâneos
+function fireToGAS(action, dataStr) {
+  const url = GAS + '?action=' + action + '&data=' + encodeURIComponent(dataStr) + '&t=' + Date.now();
+  // Canal 1 — GET (mesmo canal do pullFromCloud, confirmado funcional)
+  fetch(url, { mode: 'no-cors' }).catch(() => {});
+  // Canal 2 — POST via form em iframe (doPost directo, sem redirect)
   try {
     const ifr = document.createElement('iframe');
     ifr.name = '_p' + Date.now();
     ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
     const frm = document.createElement('form');
     frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
-    [['action', act], ['data', dataStr]].forEach(([n, v]) => {
+    [['action', action], ['data', dataStr]].forEach(([n, v]) => {
       const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
       frm.appendChild(inp);
     });
-    document.body.appendChild(ifr);
-    document.body.appendChild(frm);
+    document.body.appendChild(ifr); document.body.appendChild(frm);
     frm.submit();
     setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
-  } catch(e) { console.warn('form push:', e.message); }
+  } catch(e) {}
+}
 
-  // Método 2 — fetch backup com dados em URL params (sobrevive a redirect GAS)
-  const url = GAS + '?action=' + act + '&data=' + encodeURIComponent(dataStr) + '&t=' + Date.now();
-  fetch(url, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ action: act, data: dataStr }) }).catch(() => {});
+// Enfileirar + disparar imediatamente
+function pushReq(req, action) {
+  const act = action || 'addOne';
+  const dataStr = JSON.stringify(req);
+  // Guardar na fila (substitui entrada anterior para o mesmo id+action)
+  const q = getQ().filter(e => !(e.id === req.id && e.act === act));
+  q.push({ id: req.id, act, data: dataStr, ts: Date.now() });
+  saveQ(q);
+  fireToGAS(act, dataStr);
+}
+
+// Verificar o que chegou à cloud; retentar o que falta; retorna nº pendentes
+function flushQueue(cloudData) {
+  const cloudMap = new Map((cloudData || []).map(r => [r.id, r]));
+  const remaining = [];
+  getQ().forEach(e => {
+    const cloudRec = cloudMap.get(e.id);
+    let confirmed;
+    if (e.act === 'deleteOne') {
+      confirmed = !cloudRec;
+    } else {
+      if (!cloudRec) { confirmed = false; }
+      else {
+        const local = JSON.parse(e.data);
+        confirmed = !local.lastModified || cloudRec.lastModified === local.lastModified;
+      }
+    }
+    if (confirmed) return; // chegou — sai da fila
+    fireToGAS(e.act, e.data); // ainda não chegou — retentar
+    remaining.push(e);
+  });
+  saveQ(remaining);
+  return remaining.length;
 }
 
 async function pullFromCloud() {
@@ -664,10 +700,9 @@ async function pullFromCloud() {
     if (Array.isArray(data) && data.length > 0) {
       const deleted = getDeleted();
       const cloudMap = new Map(data.filter(r => !deleted.has(r.id)).map(r => [r.id, r]));
-      // Base: local records (minus explicitly deleted) — never wiped
       const local = getReqs().filter(r => !deleted.has(r.id));
       const localIds = new Set(local.map(r => r.id));
-      // Merge: prefer whichever version (local or cloud) has the most recent lastModified
+      // Merge: ganha a versão com lastModified mais recente (local ou cloud)
       const merged = local.map(r => {
         if (!cloudMap.has(r.id)) return r;
         const cloud = cloudMap.get(r.id);
@@ -675,19 +710,15 @@ async function pullFromCloud() {
         const cTs = cloud.lastModified || cloud.created || '';
         return lTs > cTs ? r : cloud;
       });
-      // Add cloud records that don't exist locally yet
       cloudMap.forEach((r, id) => { if (!localIds.has(id)) merged.push(r); });
       saveReqs(merged);
-      // Push local-only records that haven't reached the cloud yet
-      const pending = getPendingLocal(new Set(data.map(r => r.id)));
-      if (pending.length > 0) pending.forEach(r => pushReq(r, 'addOne'));
-      setSyncBadge(pending.length > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + (pending.length > 0 ? ' ↑' + pending.length : '') + ' · ' + ts());
+      const qLen = flushQueue(data);
+      setSyncBadge(qLen > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + (qLen > 0 ? ' ↑' + qLen : '') + ' · ' + ts());
       return merged;
     }
-    // Cloud vazia — retentar push de todos os pedidos locais
-    const pending = getPendingLocal(null);
-    if (pending.length > 0) pending.forEach(r => pushReq(r, 'addOne'));
-    setSyncBadge(pending.length > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + (pending.length > 0 ? ' ↑' + pending.length : '') + ' · ' + ts());
+    // Cloud vazia — processar fila (retentar tudo)
+    const qLen = flushQueue([]);
+    setSyncBadge(qLen > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + (qLen > 0 ? ' ↑' + qLen : '') + ' · ' + ts());
     return null;
   } catch(e) {
     console.warn('pull:', e.message);
