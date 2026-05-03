@@ -633,11 +633,14 @@ function calcTotalDias(rq) {
 function getQ()   { return LS.g('aea_push_q') || []; }
 function saveQ(q) { LS.s('aea_push_q', q); }
 
-// Disparar para GAS via dois canais simultâneos
+// Disparar para GAS via três canais simultâneos
 function fireToGAS(action, dataStr) {
   const url = GAS + '?action=' + action + '&data=' + encodeURIComponent(dataStr) + '&t=' + Date.now();
-  // Canal 1 — GET (mesmo canal do pullFromCloud, confirmado funcional)
-  fetch(url, { mode: 'no-cors' }).catch(() => {});
+  // Canal 1 — GET com CORS (mesmo modo do pullFromCloud — canal confirmado funcional)
+  fetch(url, { mode: 'cors' }).catch(() => {
+    // Fallback sem CORS
+    fetch(url, { mode: 'no-cors' }).catch(() => {});
+  });
   // Canal 2 — POST via form em iframe (doPost directo, sem redirect)
   try {
     const ifr = document.createElement('iframe');
@@ -1504,17 +1507,16 @@ function installApp() {
 // ── AUTO-SYNC ──
 let _autoSyncInterval = null;
 async function autoSyncTick() {
-  const data = await pullFromCloud();
-  if (data) {
-    updatePC(); refreshRN();
-    if (isMgr() && cv === 'requests') { renderStats(); renderReqs(); }
-    if (cv === 'plan') renderPlan();
-  }
+  await pullFromCloud();
+  // Actualizar sempre — independentemente de cloud retornar dados ou null
+  updatePC(); refreshRN();
+  if (isMgr() && cv === 'requests') { renderStats(); renderReqs(); }
+  if (cv === 'plan') renderPlan();
 }
 function startAutoSync() {
   if (_autoSyncInterval) clearInterval(_autoSyncInterval);
-  // Gestor: a cada 20s; utilizador: a cada 45s
-  _autoSyncInterval = setInterval(autoSyncTick, isMgr() ? 20000 : 45000);
+  // Gestor: a cada 15s; utilizador: a cada 30s
+  _autoSyncInterval = setInterval(autoSyncTick, isMgr() ? 15000 : 30000);
 }
 
 // Sincronizar imediatamente ao voltar para o separador
