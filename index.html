@@ -628,18 +628,30 @@ function calcTotalDias(rq) {
 }
 
 // ── CLOUD SYNC ──
-async function pushReq(req, action) {
+function pushReq(req, action) {
   const act = action || 'addOne';
   const dataStr = JSON.stringify(req);
-  // 3 camadas de compatibilidade com GAS:
-  // 1) URL params (?action=&data=) — lidos por e.parameter mesmo após redirect POST→GET
-  // 2) URLSearchParams body — lido por e.parameter no doPost sem redirect
-  // 3) JSON body como string — lido por e.postData.contents no doPost
-  const url = GAS + '?action=' + act + '&data=' + encodeURIComponent(dataStr);
-  const form = new URLSearchParams({ action: act, data: dataStr });
+
+  // Método 1 — form em iframe oculto: o mais fiável para GAS (contorna CORS e redirect POST→GET)
   try {
-    await fetch(url, { method: 'POST', mode: 'no-cors', body: form });
-  } catch(e) { console.warn('push:', e.message); }
+    const ifr = document.createElement('iframe');
+    ifr.name = '_p' + Date.now();
+    ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
+    const frm = document.createElement('form');
+    frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
+    [['action', act], ['data', dataStr]].forEach(([n, v]) => {
+      const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
+      frm.appendChild(inp);
+    });
+    document.body.appendChild(ifr);
+    document.body.appendChild(frm);
+    frm.submit();
+    setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
+  } catch(e) { console.warn('form push:', e.message); }
+
+  // Método 2 — fetch backup com dados em URL params (sobrevive a redirect GAS)
+  const url = GAS + '?action=' + act + '&data=' + encodeURIComponent(dataStr) + '&t=' + Date.now();
+  fetch(url, { method: 'POST', mode: 'no-cors', body: new URLSearchParams({ action: act, data: dataStr }) }).catch(() => {});
 }
 
 async function pullFromCloud() {
@@ -655,8 +667,14 @@ async function pullFromCloud() {
       // Base: local records (minus explicitly deleted) — never wiped
       const local = getReqs().filter(r => !deleted.has(r.id));
       const localIds = new Set(local.map(r => r.id));
-      // Update local records with cloud version (captures manager status changes)
-      const merged = local.map(r => cloudMap.has(r.id) ? cloudMap.get(r.id) : r);
+      // Merge: prefer whichever version (local or cloud) has the most recent lastModified
+      const merged = local.map(r => {
+        if (!cloudMap.has(r.id)) return r;
+        const cloud = cloudMap.get(r.id);
+        const lTs = r.lastModified || r.created || '';
+        const cTs = cloud.lastModified || cloud.created || '';
+        return lTs > cTs ? r : cloud;
+      });
       // Add cloud records that don't exist locally yet
       cloudMap.forEach((r, id) => { if (!localIds.has(id)) merged.push(r); });
       saveReqs(merged);
@@ -713,7 +731,7 @@ async function submitReq() {
   }
   _submitting = true;
   const r = {
-    id: nextRN(), created: new Date().toISOString(), status: 'Pendente',
+    id: nextRN(), created: new Date().toISOString(), lastModified: new Date().toISOString(), status: 'Pendente',
     nome: g('f-nome'), dep: g('f-dep'), tel: g('f-tel'), email: g('f-email'),
     dataSaida: g('f-data'), dataRegresso: g('f-ret') || g('f-data'),
     horaSaida: g('f-hs'), horaRegresso: g('f-hr'),
@@ -927,6 +945,7 @@ function saveEditReq() {
   const idx  = reqs.findIndex(x => x.id === id);
   if (idx === -1) { toast('Pedido não encontrado.', 'error'); return; }
   reqs[idx] = Object.assign(reqs[idx], {
+    lastModified: new Date().toISOString(),
     nome: g('eq-nome'), dep: g('eq-dep'), tel: g('eq-tel'), email: g('eq-email'),
     dataSaida: g('eq-data'), dataRegresso: g('eq-ret') || g('eq-data'),
     horaSaida: g('eq-hs'), horaRegresso: g('eq-hr'),
@@ -999,6 +1018,7 @@ async function saveAssign() {
   const rs = getReqs().map(r => {
     if (r.id !== id) return r;
     return { ...r,
+      lastModified: new Date().toISOString(),
       viaturaId: vId, viaturaNome: veh ? veh.nome+' ('+veh.mat+')' : '',
       motorista: mot ? mot.motorista : (veh ? veh.motorista : ''),
       contactoMotorista: mot ? mot.tel : (veh ? veh.tel : ''),
