@@ -1417,6 +1417,7 @@ setTimeout(async () => {
     renderStats();
     renderReqs();
   }
+  startAutoSync(); // iniciar sync automática para qualquer papel
 }, 0);
 
 if ('serviceWorker' in navigator) {
@@ -1430,6 +1431,22 @@ if ('serviceWorker' in navigator) {
         t.className = 'info'; t.style.display = 'block';
       }
     });
+  });
+}
+
+// ── INSTALAR PWA ──
+let _deferredInstall = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredInstall = e;
+  document.getElementById('btn-install').style.display = '';
+});
+function installApp() {
+  if (!_deferredInstall) return;
+  _deferredInstall.prompt();
+  _deferredInstall.userChoice.then(() => {
+    _deferredInstall = null;
+    document.getElementById('btn-install').style.display = 'none';
   });
 }
 
