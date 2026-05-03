@@ -201,13 +201,14 @@ tr:hover td{background:var(--ol)}
     </div>
     <div class="stit" style="margin-top:24px"><div class="sico">🚗</div>Detalhes da Viagem</div>
     <div class="fg3">
-      <div class="fi"><label>Data da viagem *</label><input type="date" id="f-data"></div>
-      <div class="fi"><label>Data de regresso</label><input type="date" id="f-ret"></div>
+      <div class="fi"><label>Data da viagem *</label><input type="date" id="f-data" onchange="syncDatas('f','data')"></div>
+      <div class="fi"><label>Data de regresso</label><input type="date" id="f-ret" onchange="syncDatas('f','ret')"></div>
       <div class="fi"><label>Urgência</label><select id="f-urg"><option>Normal</option><option>Urgente</option><option>Muito urgente</option></select></div>
       <div class="fi"><label>Motorista Solicitado</label><select id="f-mots"><option value="">-- Qualquer motorista --</option></select></div>
       <div class="fi"><label>Hora de saída *</label><input type="time" id="f-hs" value="08:00"></div>
       <div class="fi"><label>Hora de regresso</label><input type="time" id="f-hr" value="17:00"></div>
-      <div class="fi"><label>Nº de dias *</label><input type="number" id="f-dias" min="1" max="60" value="1"></div>
+      <div class="fi"><label>Nº de dias *</label><input type="number" id="f-dias" min="1" max="60" value="1" oninput="syncDatas('f','dias')"></div>
+      <div class="fi s3" id="f-preview-wrap" style="display:none"><div style="background:#EFF6FF;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#1e40af;line-height:1.6">📅 <strong>Dias da semana:</strong> <span id="f-preview"></span></div></div>
       <div class="fi"><label>Nº de passageiros</label><input type="number" id="f-npax" min="1" max="20" value="1"></div>
       <div class="fi"><label>Local de partida *</label><select id="f-part"><option>Escritório – Pemba</option><option>Escritório – Maputo</option><option>Escritório – Palma</option><option>Campo</option><option>Outro</option></select></div>
       <div class="fi"><label>Projecto / Doador</label><input id="f-proj" placeholder="Ex: OIM, AECID, UNICEF..."></div>
@@ -317,13 +318,14 @@ tr:hover td{background:var(--ol)}
     </div>
     <div class="stit" style="margin-top:20px"><div class="sico">🚗</div>Detalhes da Viagem</div>
     <div class="fg3">
-      <div class="fi"><label>Data da viagem *</label><input type="date" id="eq-data"></div>
-      <div class="fi"><label>Data de regresso</label><input type="date" id="eq-ret"></div>
+      <div class="fi"><label>Data da viagem *</label><input type="date" id="eq-data" onchange="syncDatas('eq','data')"></div>
+      <div class="fi"><label>Data de regresso</label><input type="date" id="eq-ret" onchange="syncDatas('eq','ret')"></div>
       <div class="fi"><label>Urgência</label><select id="eq-urg"><option>Normal</option><option>Urgente</option><option>Muito urgente</option></select></div>
       <div class="fi"><label>Motorista Solicitado</label><select id="eq-mots"><option value="">-- Qualquer motorista --</option></select></div>
       <div class="fi"><label>Hora de saída *</label><input type="time" id="eq-hs"></div>
       <div class="fi"><label>Hora de regresso</label><input type="time" id="eq-hr"></div>
-      <div class="fi"><label>Nº de dias *</label><input type="number" id="eq-dias" min="1" max="60"></div>
+      <div class="fi"><label>Nº de dias *</label><input type="number" id="eq-dias" min="1" max="60" oninput="syncDatas('eq','dias')"></div>
+      <div class="fi s3" id="eq-preview-wrap" style="display:none"><div style="background:#EFF6FF;border-radius:8px;padding:10px 14px;font-size:12.5px;color:#1e40af;line-height:1.6">📅 <strong>Dias da semana:</strong> <span id="eq-preview"></span></div></div>
       <div class="fi"><label>Nº de passageiros</label><input type="number" id="eq-npax" min="1" max="20"></div>
       <div class="fi"><label>Local de partida *</label><select id="eq-part"><option>Escritório – Pemba</option><option>Escritório – Maputo</option><option>Escritório – Palma</option><option>Campo</option><option>Outro</option></select></div>
       <div class="fi"><label>Projecto / Doador</label><input id="eq-proj"></div>
@@ -571,6 +573,50 @@ function populateMotoristaSel(selId) {
   sel.innerHTML = '<option value="">-- Qualquer motorista --</option>' + drivers.map(d => '<option value="' + d + '">' + d + '</option>').join('');
 }
 
+// ── SINCRONIZAÇÃO DE DATAS E PRÉVIA DE DIAS DA SEMANA ──
+function syncDatas(p, trig) {
+  const elData = document.getElementById(p + '-data');
+  const elRet  = document.getElementById(p + '-ret');
+  const elDias = document.getElementById(p + '-dias');
+  const elWrap = document.getElementById(p + '-preview-wrap');
+  const elPrev = document.getElementById(p + '-preview');
+  if (!elData || !elDias) return;
+  const vData = elData.value;
+  const vDias = Math.max(1, parseInt(elDias.value) || 1);
+
+  if (trig === 'ret') {
+    // Return date changed → recalculate number of days
+    const vRet = elRet && elRet.value;
+    if (vData && vRet && vRet >= vData) {
+      const diff = Math.round((new Date(vRet+'T12:00:00') - new Date(vData+'T12:00:00')) / 86400000) + 1;
+      elDias.value = diff;
+    }
+  } else {
+    // Departure date or dias changed → auto-fill return date
+    if (vData) {
+      const d = new Date(vData + 'T12:00:00');
+      d.setDate(d.getDate() + vDias - 1);
+      if (elRet) elRet.value = d.toISOString().slice(0, 10);
+    }
+  }
+
+  // Build weekday preview
+  if (!elWrap || !elPrev || !vData) { if (elWrap) elWrap.style.display = 'none'; return; }
+  const retVal = (elRet && elRet.value) || vData;
+  const PT_FULL = ['Domingo','Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado'];
+  const start = new Date(vData + 'T12:00:00');
+  const end   = new Date(retVal + 'T12:00:00');
+  const list  = [];
+  const cur   = new Date(start);
+  while (cur <= end && list.length < 60) {
+    list.push(PT_FULL[cur.getDay()]);
+    cur.setDate(cur.getDate() + 1);
+  }
+  const total = list.length;
+  elPrev.textContent = list.join(' · ') + ' (' + total + (total === 1 ? ' dia' : ' dias') + ')';
+  elWrap.style.display = '';
+}
+
 // ── CLOUD SYNC ──
 async function pushReq(req, action) {
   try {
@@ -684,6 +730,7 @@ function clearForm() {
   document.getElementById('f-urg').value = 'Normal';
   document.getElementById('f-part').selectedIndex = 0;
   document.getElementById('f-data').value = new Date().toISOString().slice(0,10);
+  const pw = document.getElementById('f-preview-wrap'); if (pw) pw.style.display = 'none';
 }
 
 // ── NAVEGAÇÃO ──
@@ -829,6 +876,7 @@ function openEditReq(id, asMgr) {
   for (let i=0; i<ps.options.length; i++) { if (ps.options[i].value === r.partida) { ps.selectedIndex=i; break; } }
   populateMotoristaSel('eq-mots');
   document.getElementById('eq-mots').value = r.motoristaSolicitado || '';
+  syncDatas('eq', 'data');
   openMo('mo-edit-req');
 }
 
@@ -962,7 +1010,7 @@ function renderPlan() {
       const ds = wd.date.toISOString().slice(0, 10);
       const rq = rqNoDia(rs, v.id, ds);
       const isInicio = rq && rq.dataSaida === ds;
-      const totalDias = rq ? (parseInt(rq.dias) || 1) : 0;
+      const totalDias = rq ? (rq.dataRegresso && rq.dataRegresso !== rq.dataSaida ? Math.round((new Date(rq.dataRegresso+'T12:00:00') - new Date(rq.dataSaida+'T12:00:00')) / 86400000) + 1 : (parseInt(rq.dias) || 1)) : 0;
       const dn = rq ? diaDaViagem(rq, ds) : 0;
       const multiDia = totalDias > 1;
 
@@ -1185,7 +1233,7 @@ function expPlanPdf() {
     const ds=wd.date.toISOString().slice(0,10);
     const rq=rqNoDia(rs,v.id,ds);
     const isInicio=rq&&rq.dataSaida===ds;
-    const totalDias=rq?(parseInt(rq.dias)||1):0;
+    const totalDias=rq?(rq.dataRegresso&&rq.dataRegresso!==rq.dataSaida?Math.round((new Date(rq.dataRegresso+'T12:00:00')-new Date(rq.dataSaida+'T12:00:00'))/86400000)+1:(parseInt(rq.dias)||1)):0;
     const dn=rq?diaDaViagem(rq,ds):0;
     const estado=!rq?'Livre':totalDias>1?'Dia '+dn+'/'+totalDias:'Atribuído';
     const horario=!rq?'—':isInicio?rq.horaSaida+'–'+rq.horaRegresso:'↩ em viagem';
