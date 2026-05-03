@@ -620,12 +620,13 @@ function syncDatas(p, trig) {
 // ── CLOUD SYNC ──
 async function pushReq(req, action) {
   const act = action || 'addOne';
+  const payload = JSON.stringify(req);
+  // Envia action+data no URL E no body:
+  // - URL params: lidos por e.parameter no doGet/doPost (sobrevivem ao redirect POST→GET do GAS)
+  // - Body JSON: lido por e.postData.contents no doPost (caso sem redirect)
+  const url = GAS + '?action=' + act + '&data=' + encodeURIComponent(payload);
   try {
-    await fetch(GAS + '?action=' + act, {
-      method: 'POST',
-      mode: 'no-cors',
-      body: JSON.stringify({ action: act, data: req })
-    });
+    await fetch(url, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: act, data: req }) });
   } catch(e) { console.warn('push:', e.message); }
 }
 
@@ -657,8 +658,17 @@ async function pullFromCloud() {
       setSyncBadge(localOnly.length > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + pendingTxt + ' · ' + ts);
       return merged;
     }
+    // Cloud vazia mas pode haver pedidos locais pendentes — retentar push
+    const PENDING_MS2 = 30 * 60 * 1000;
+    const pendingLocal = getReqs().filter(r => {
+      if (getDeleted().has(r.id)) return false;
+      const age = r.created ? Date.now() - new Date(r.created).getTime() : Infinity;
+      return age < PENDING_MS2;
+    });
+    if (pendingLocal.length > 0) pendingLocal.forEach(r => pushReq(r, 'addOne'));
     const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    setSyncBadge('synced', '☁ ' + getReqs().length + ' · ' + ts);
+    const ptxt = pendingLocal.length > 0 ? ' ↑' + pendingLocal.length : '';
+    setSyncBadge(pendingLocal.length > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + ptxt + ' · ' + ts);
     return null;
   } catch(e) {
     console.warn('pull:', e.message);
@@ -1394,11 +1404,8 @@ document.getElementById('nv-out').style.display = 'none';
 setSyncBadge('syncing', 'A carregar...');
 // Sincronizar em background sem bloquear o UI
 setTimeout(async () => {
-  const data = await pullFromCloud();
-  if (data) {
-    updatePC();
-    if (isMgr()) { renderStats(); renderReqs(); }
-  }
+  await pullFromCloud();
+  updatePC();
   // Se já tem sessão activa, aplicar o papel do gestor
   if (isMgr()) {
     document.querySelectorAll('.mgr').forEach(e => e.style.display = '');
