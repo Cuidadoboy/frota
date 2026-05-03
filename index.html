@@ -749,8 +749,15 @@ async function forcSync() {
 // ── NÚMERO REQ ──
 function nextRN() {
   const yr = new Date().getFullYear();
-  const n = getReqs().filter(r => r.id && r.id.includes(String(yr))).length + 1;
-  return 'REQ-' + yr + '-' + String(n).padStart(3,'0');
+  const pfx = 'REQ-' + yr + '-';
+  const deleted = getDeleted();
+  const used = new Set([
+    ...getReqs().filter(r => r.id && r.id.startsWith(pfx)).map(r => r.id),
+    ...[...deleted].filter(id => id && id.startsWith(pfx))
+  ]);
+  let n = 1, id;
+  do { id = pfx + String(n++).padStart(3,'0'); } while (used.has(id));
+  return id;
 }
 function refreshRN() { document.getElementById('rn').textContent = nextRN(); }
 
@@ -784,7 +791,8 @@ async function submitReq() {
   toast('✔ Pedido ' + r.id + ' enviado com sucesso!', 'success');
   // Envio em background (não bloqueia a UI)
   setSyncBadge('syncing', '↑ A enviar...');
-  pushReq(r, 'addOne').then(() => setTimeout(autoSyncTick, 3000));
+  pushReq(r, 'addOne');
+  setTimeout(autoSyncTick, 3000);
   if (EMAILJS_PUBLIC_KEY !== 'SEU_PUBLIC_KEY') {
     emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       to_email:   NOTIFY_EMAIL,
