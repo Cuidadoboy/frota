@@ -807,7 +807,7 @@ function renderReqs() {
         '<div class="rt_">👤 ' + r.nome + ' → 📍 ' + r.destino + '</div>' +
         '<div class="rd">📅 ' + r.dataSaida + (r.dataRegresso && r.dataRegresso !== r.dataSaida ? ' – '+r.dataRegresso : '') +
           ' &nbsp;·&nbsp; 🕐 ' + r.horaSaida + '–' + r.horaRegresso +
-          ' &nbsp;·&nbsp; 📆 ' + (r.dias||'1') + ' dia' + ((r.dias||'1')!=='1'?'s':'') +
+          ' &nbsp;·&nbsp; 📆 ' + (r.dias||'1') + ' dia' + (parseInt(r.dias||'1')!==1?'s':'') +
           '<br><span class="rc">' + r.dep + '</span>' +
           (r.urgencia && r.urgencia!=='Normal' ? '<span class="rc" style="background:#fff5e0;color:#a86200">' + r.urgencia + '</span>' : '') +
           (r.projecto ? ' &nbsp;·&nbsp; 📁 ' + r.projecto : '') +
