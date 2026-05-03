@@ -636,11 +636,15 @@ async function pullFromCloud() {
     const data = await resp.json();
     if (Array.isArray(data) && data.length > 0) {
       const deleted = getDeleted();
-      const filtered = data.filter(r => !deleted.has(r.id));
-      saveReqs(filtered);
+      const cloudFiltered = data.filter(r => !deleted.has(r.id));
+      // Merge: preserve local-only records not yet propagated to cloud (pending push)
+      const cloudIds = new Set(cloudFiltered.map(r => r.id));
+      const localOnly = getReqs().filter(r => !cloudIds.has(r.id) && !deleted.has(r.id));
+      const merged = [...cloudFiltered, ...localOnly];
+      saveReqs(merged);
       const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-      setSyncBadge('synced', '☁ ' + filtered.length + ' · ' + ts);
-      return filtered;
+      setSyncBadge('synced', '☁ ' + merged.length + ' · ' + ts);
+      return merged;
     }
     const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     setSyncBadge('synced', '☁ ' + getReqs().length + ' · ' + ts);
@@ -975,6 +979,7 @@ async function saveAssign() {
   await pushReq(updated, 'updateOne');
   closeMo('mo-assign');
   renderStats(); renderReqs(); updatePC();
+  if (cv === 'plan') renderPlan();
   toast('✔ Atribuição guardada!', 'success');
   setTimeout(autoSyncTick, 3000);
 }
@@ -1042,16 +1047,39 @@ function renderPlan() {
     });
   });
   noDriver.forEach(v => {
+    const anyRq = wds.map(wd => rqNoDia(rs, v.id, wd.date.toISOString().slice(0,10))).find(Boolean);
+    const planMot = anyRq ? (anyRq.motorista || '—') : '—';
+    const planTel = anyRq ? (anyRq.contactoMotorista || '—') : '—';
     wds.forEach((wd, di) => {
-      rows += '<tr>' +
+      const ds = wd.date.toISOString().slice(0, 10);
+      const rq = rqNoDia(rs, v.id, ds);
+      const isInicio = rq && rq.dataSaida === ds;
+      const totalDias = rq ? (rq.dataRegresso && rq.dataRegresso !== rq.dataSaida ? Math.round((new Date(rq.dataRegresso+'T12:00:00') - new Date(rq.dataSaida+'T12:00:00')) / 86400000) + 1 : (parseInt(rq.dias) || 1)) : 0;
+      const dn = rq ? diaDaViagem(rq, ds) : 0;
+      const multiDia = totalDias > 1;
+      let badgeLabel, badgeStyle;
+      if (!rq) {
+        badgeLabel = 'Sem motorista'; badgeStyle = 'background:#f3f4f6;color:#9ca3af';
+      } else if (multiDia) {
+        badgeLabel = 'Dia ' + dn + ' / ' + totalDias; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
+      } else {
+        badgeLabel = 'Atribuído'; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
+      }
+      const horario = !rq ? '—' : isInicio ? rq.horaSaida + '–' + rq.horaRegresso : '<em style="color:#94a3b8;font-style:normal">↩ em viagem</em>';
+      const pax = !rq ? '—' : isInicio ? (rq.pax || rq.nome || '—') : '·';
+      const rowStyle = !rq ? '' : isInicio ? 'background:#F0F4FF' : 'background:#F8F9FF';
+      rows += '<tr style="' + rowStyle + '">' +
         (di === 0 ?
-          '<td rowspan="5" style="color:#bbb;vertical-align:top;padding-top:14px">—</td>' +
-          '<td rowspan="5" class="mono" style="color:#bbb;vertical-align:top;padding-top:14px">—</td>' +
+          '<td rowspan="5" style="' + (anyRq ? 'font-weight:700' : 'color:#bbb') + ';vertical-align:top;padding-top:14px">' + planMot + '</td>' +
+          '<td rowspan="5" class="mono" style="' + (anyRq ? '' : 'color:#bbb') + ';vertical-align:top;padding-top:14px">' + planTel + '</td>' +
           '<td rowspan="5" style="vertical-align:top;padding-top:14px;color:var(--od)">' + v.nome + '<br><span class="mono" style="font-size:10px">' + (v.mat || '—') + '</span></td>' : '') +
-        '<td>' + wd.day + '</td>' +
+        '<td style="font-weight:600">' + wd.day + '</td>' +
         '<td class="mono">' + fmtDP(wd.date) + '</td>' +
-        '<td>—</td><td class="mono">—</td><td>—</td><td>—</td>' +
-        '<td><span class="badge" style="background:#f3f4f6;color:#9ca3af">Sem motorista</span></td></tr>';
+        '<td>' + (rq ? rq.destino : '—') + '</td>' +
+        '<td class="mono">' + horario + '</td>' +
+        '<td>' + pax + '</td>' +
+        '<td>' + (rq ? (rq.projecto || rq.dep || '—') : '—') + '</td>' +
+        '<td><span class="badge" style="' + badgeStyle + '">' + badgeLabel + '</span></td></tr>';
     });
   });
   document.getElementById('plan-b').innerHTML = rows || '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--tm)">Nenhuma viatura configurada.</td></tr>';
@@ -1239,7 +1267,20 @@ function expPlanPdf() {
     const horario=!rq?'—':isInicio?rq.horaSaida+'–'+rq.horaRegresso:'↩ em viagem';
     rows.push([v.motorista,v.tel||'—',v.nome+' ('+(v.mat||'—')+')',wd.day,fmtDP(wd.date),rq?rq.destino:'—',horario,isInicio?(rq.pax||rq.nome||'—'):rq?'·':'—',rq?rq.projecto||rq.dep||'—':'—',estado]);
   }); });
-  fl.filter(v => !v.motorista).forEach(v => { wds.forEach(wd => { rows.push(['—','—',v.nome+' ('+(v.mat||'—')+')',wd.day,fmtDP(wd.date),'—','—','—','—','Sem motorista']); }); });
+  fl.filter(v => !v.motorista).forEach(v => {
+    const anyRq2=wds.map(wd=>rqNoDia(rs,v.id,wd.date.toISOString().slice(0,10))).find(Boolean);
+    const pMot=anyRq2?(anyRq2.motorista||'—'):'—'; const pTel=anyRq2?(anyRq2.contactoMotorista||'—'):'—';
+    wds.forEach(wd => {
+      const ds=wd.date.toISOString().slice(0,10);
+      const rq=rqNoDia(rs,v.id,ds);
+      const isInicio=rq&&rq.dataSaida===ds;
+      const totalDias=rq?(rq.dataRegresso&&rq.dataRegresso!==rq.dataSaida?Math.round((new Date(rq.dataRegresso+'T12:00:00')-new Date(rq.dataSaida+'T12:00:00'))/86400000)+1:(parseInt(rq.dias)||1)):0;
+      const dn=rq?diaDaViagem(rq,ds):0;
+      const estado=!rq?'Sem motorista':totalDias>1?'Dia '+dn+'/'+totalDias:'Atribuído';
+      const horario=!rq?'—':isInicio?rq.horaSaida+'–'+rq.horaRegresso:'↩ em viagem';
+      rows.push([pMot,pTel,v.nome+' ('+(v.mat||'—')+')',wd.day,fmtDP(wd.date),rq?rq.destino:'—',horario,isInicio?(rq.pax||rq.nome||'—'):rq?'·':'—',rq?rq.projecto||rq.dep||'—':'—',estado]);
+    });
+  });
   doc.autoTable({ head:[['Motorista','Contacto','Viatura','Dia','Data','Destino','Horário','Passageiros','Projecto','Estado']], body:rows, startY:26, headStyles:{fillColor:[242,101,34],textColor:255,fontStyle:'bold',fontSize:9}, bodyStyles:{fontSize:8}, alternateRowStyles:{fillColor:[254,240,232]}, margin:{left:8,right:8} });
   doc.save('AeA_Plano_'+wv+'.pdf'); toast('✔ Plano PDF exportado!','success');
 }
