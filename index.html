@@ -650,18 +650,26 @@ async function pullFromCloud() {
     const data = await resp.json();
     const ts = () => new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     if (Array.isArray(data) && data.length > 0) {
-      const cloudFiltered = data.filter(r => !getDeleted().has(r.id));
-      const localOnly = getPendingLocal(new Set(cloudFiltered.map(r => r.id)));
-      if (localOnly.length > 0) localOnly.forEach(r => pushReq(r, 'addOne'));
-      const merged = [...cloudFiltered, ...localOnly];
+      const deleted = getDeleted();
+      const cloudMap = new Map(data.filter(r => !deleted.has(r.id)).map(r => [r.id, r]));
+      // Base: local records (minus explicitly deleted) — never wiped
+      const local = getReqs().filter(r => !deleted.has(r.id));
+      const localIds = new Set(local.map(r => r.id));
+      // Update local records with cloud version (captures manager status changes)
+      const merged = local.map(r => cloudMap.has(r.id) ? cloudMap.get(r.id) : r);
+      // Add cloud records that don't exist locally yet
+      cloudMap.forEach((r, id) => { if (!localIds.has(id)) merged.push(r); });
       saveReqs(merged);
-      setSyncBadge(localOnly.length > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + (localOnly.length > 0 ? ' ↑' + localOnly.length : '') + ' · ' + ts());
+      // Push local-only records that haven't reached the cloud yet
+      const pending = getPendingLocal(new Set(data.map(r => r.id)));
+      if (pending.length > 0) pending.forEach(r => pushReq(r, 'addOne'));
+      setSyncBadge(pending.length > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + (pending.length > 0 ? ' ↑' + pending.length : '') + ' · ' + ts());
       return merged;
     }
-    // Cloud vazia — retentar push de pedidos locais pendentes
-    const pendingLocal = getPendingLocal(null);
-    if (pendingLocal.length > 0) pendingLocal.forEach(r => pushReq(r, 'addOne'));
-    setSyncBadge(pendingLocal.length > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + (pendingLocal.length > 0 ? ' ↑' + pendingLocal.length : '') + ' · ' + ts());
+    // Cloud vazia — retentar push de todos os pedidos locais
+    const pending = getPendingLocal(null);
+    if (pending.length > 0) pending.forEach(r => pushReq(r, 'addOne'));
+    setSyncBadge(pending.length > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + (pending.length > 0 ? ' ↑' + pending.length : '') + ' · ' + ts());
     return null;
   } catch(e) {
     console.warn('pull:', e.message);
