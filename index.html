@@ -610,6 +610,25 @@ function syncDatas(p, trig) {
   elWrap.style.display = '';
 }
 
+// ── HELPERS ──
+const PENDING_MS = 30 * 60 * 1000;
+function getPendingLocal(excludeIds) {
+  const deleted = getDeleted();
+  return getReqs().filter(r => {
+    if (deleted.has(r.id)) return false;
+    if (excludeIds && excludeIds.has(r.id)) return false;
+    const age = r.created ? Date.now() - new Date(r.created).getTime() : Infinity;
+    return age < PENDING_MS;
+  });
+}
+function refreshMgr() { renderStats(); renderReqs(); updatePC(); refreshRN(); }
+function calcTotalDias(rq) {
+  if (!rq) return 0;
+  return rq.dataRegresso && rq.dataRegresso !== rq.dataSaida
+    ? Math.round((new Date(rq.dataRegresso+'T12:00:00') - new Date(rq.dataSaida+'T12:00:00')) / 86400000) + 1
+    : (parseInt(rq.dias) || 1);
+}
+
 // ── CLOUD SYNC ──
 async function pushReq(req, action) {
   const act = action || 'addOne';
@@ -631,39 +650,20 @@ async function pullFromCloud() {
     const resp = await fetch(GAS + '?action=getAll&t=' + Date.now(), { mode: 'cors' });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
+    const ts = () => new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     if (Array.isArray(data) && data.length > 0) {
-      const deleted = getDeleted();
-      const cloudFiltered = data.filter(r => !deleted.has(r.id));
-      // Merge: only preserve very recent local records not yet in cloud (pending push ≤30min)
-      const cloudIds = new Set(cloudFiltered.map(r => r.id));
-      const PENDING_MS = 30 * 60 * 1000;
-      const localOnly = getReqs().filter(r => {
-        if (cloudIds.has(r.id) || deleted.has(r.id)) return false;
-        const age = r.created ? Date.now() - new Date(r.created).getTime() : Infinity;
-        return age < PENDING_MS;
-      });
-      // Re-enviar registos locais que ainda não chegaram à nuvem (retry push)
-      if (localOnly.length > 0) {
-        localOnly.forEach(r => pushReq(r, 'addOne'));
-      }
+      const cloudFiltered = data.filter(r => !getDeleted().has(r.id));
+      const localOnly = getPendingLocal(new Set(cloudFiltered.map(r => r.id)));
+      if (localOnly.length > 0) localOnly.forEach(r => pushReq(r, 'addOne'));
       const merged = [...cloudFiltered, ...localOnly];
       saveReqs(merged);
-      const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-      const pendingTxt = localOnly.length > 0 ? ' ↑' + localOnly.length : '';
-      setSyncBadge(localOnly.length > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + pendingTxt + ' · ' + ts);
+      setSyncBadge(localOnly.length > 0 ? 'syncing' : 'synced', '☁ ' + merged.length + (localOnly.length > 0 ? ' ↑' + localOnly.length : '') + ' · ' + ts());
       return merged;
     }
-    // Cloud vazia mas pode haver pedidos locais pendentes — retentar push
-    const PENDING_MS2 = 30 * 60 * 1000;
-    const pendingLocal = getReqs().filter(r => {
-      if (getDeleted().has(r.id)) return false;
-      const age = r.created ? Date.now() - new Date(r.created).getTime() : Infinity;
-      return age < PENDING_MS2;
-    });
+    // Cloud vazia — retentar push de pedidos locais pendentes
+    const pendingLocal = getPendingLocal(null);
     if (pendingLocal.length > 0) pendingLocal.forEach(r => pushReq(r, 'addOne'));
-    const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    const ptxt = pendingLocal.length > 0 ? ' ↑' + pendingLocal.length : '';
-    setSyncBadge(pendingLocal.length > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + ptxt + ' · ' + ts);
+    setSyncBadge(pendingLocal.length > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + (pendingLocal.length > 0 ? ' ↑' + pendingLocal.length : '') + ' · ' + ts());
     return null;
   } catch(e) {
     console.warn('pull:', e.message);
@@ -682,7 +682,7 @@ function setSyncBadge(state, label) {
 async function forcSync() {
   const data = await pullFromCloud();
   if (data) {
-    updatePC(); refreshRN(); renderStats(); renderReqs();
+    refreshMgr();
     if (cv === 'plan') renderPlan();
     toast('✔ ' + data.length + ' pedidos sincronizados!', 'success');
   } else toast('Dados locais: ' + getReqs().length + ' pedidos', '');
@@ -697,12 +697,15 @@ function nextRN() {
 function refreshRN() { document.getElementById('rn').textContent = nextRN(); }
 
 // ── FORMULÁRIO ──
+let _submitting = false;
 async function submitReq() {
+  if (_submitting) return;
   const g = id => document.getElementById(id).value.trim();
   const req_fields = [['f-nome','Nome'],['f-dep','Departamento'],['f-tel','Telefone'],['f-data','Data da viagem'],['f-hs','Hora de saída'],['f-dest','Destino'],['f-mot','Motivo']];
   for (const [id,lb] of req_fields) {
     if (!g(id)) { toast('Campo obrigatório: ' + lb, 'error'); document.getElementById(id).focus(); return; }
   }
+  _submitting = true;
   const r = {
     id: nextRN(), created: new Date().toISOString(), status: 'Pendente',
     nome: g('f-nome'), dep: g('f-dep'), tel: g('f-tel'), email: g('f-email'),
@@ -719,6 +722,7 @@ async function submitReq() {
   reqs.push(r);
   saveReqs(reqs);
   clearForm(); refreshRN(); updatePC();
+  _submitting = false;
   toast('✔ Pedido ' + r.id + ' enviado com sucesso!', 'success');
   // Envio em background (não bloqueia a UI)
   setSyncBadge('syncing', '↑ A enviar...');
@@ -745,14 +749,16 @@ async function submitReq() {
 }
 
 function clearForm() {
-  ['f-nome','f-dep','f-tel','f-email','f-ret','f-dest','f-mot','f-car','f-proj','f-pax','f-mots'].forEach(id => document.getElementById(id).value = '');
+  ['f-nome','f-dep','f-tel','f-email','f-dest','f-mot','f-car','f-proj','f-pax','f-mots'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('f-hs').value = '08:00';
   document.getElementById('f-hr').value = '17:00';
   document.getElementById('f-npax').value = '1';
   document.getElementById('f-dias').value = '1';
   document.getElementById('f-urg').value = 'Normal';
   document.getElementById('f-part').selectedIndex = 0;
-  document.getElementById('f-data').value = new Date().toISOString().slice(0,10);
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('f-data').value = today;
+  document.getElementById('f-ret').value = today;
   const pw = document.getElementById('f-preview-wrap'); if (pw) pw.style.display = 'none';
 }
 
@@ -836,8 +842,9 @@ async function delReq(id) {
   addDeleted(id);
   saveReqs(getReqs().filter(r => r.id !== id));
   pushReq({ id }, 'deleteOne');
-  renderStats(); renderReqs(); updatePC(); refreshRN();
+  refreshMgr();
   toast('Pedido eliminado.', '');
+  setTimeout(autoSyncTick, 3000);
 }
 
 // ── EDITAR PEDIDO (requisitante) ──
@@ -941,7 +948,7 @@ function clearByStatus(status) {
   addDeleted(ids);
   saveReqs(reqs.filter(r => r.status !== status));
   ids.forEach(id => pushReq({ id }, 'deleteOne'));
-  renderStats(); renderReqs(); updatePC(); refreshRN();
+  refreshMgr();
   toast('🗑 ' + toDelete.length + ' pedido(s) ' + status.toLowerCase() + '(s) eliminado(s).', 'success');
 }
 
@@ -953,7 +960,7 @@ function clearAll() {
   addDeleted(ids);
   saveReqs([]);
   ids.forEach(id => pushReq({ id }, 'deleteOne'));
-  renderStats(); renderReqs(); updatePC(); refreshRN();
+  refreshMgr();
   toast('🗑 Todos os pedidos foram eliminados.', 'success');
 }
 
@@ -999,7 +1006,7 @@ async function saveAssign() {
   setSyncBadge('syncing', '↑ A guardar...');
   await pushReq(updated, 'updateOne');
   closeMo('mo-assign');
-  renderStats(); renderReqs(); updatePC();
+  refreshMgr();
   if (cv === 'plan') renderPlan();
   toast('✔ Atribuição guardada!', 'success');
   setTimeout(autoSyncTick, 3000);
@@ -1036,7 +1043,7 @@ function renderPlan() {
       const ds = wd.date.toISOString().slice(0, 10);
       const rq = rqNoDia(rs, v.id, ds);
       const isInicio = rq && rq.dataSaida === ds;
-      const totalDias = rq ? (rq.dataRegresso && rq.dataRegresso !== rq.dataSaida ? Math.round((new Date(rq.dataRegresso+'T12:00:00') - new Date(rq.dataSaida+'T12:00:00')) / 86400000) + 1 : (parseInt(rq.dias) || 1)) : 0;
+      const totalDias = calcTotalDias(rq);
       const dn = rq ? diaDaViagem(rq, ds) : 0;
       const multiDia = totalDias > 1;
 
@@ -1075,7 +1082,7 @@ function renderPlan() {
       const ds = wd.date.toISOString().slice(0, 10);
       const rq = rqNoDia(rs, v.id, ds);
       const isInicio = rq && rq.dataSaida === ds;
-      const totalDias = rq ? (rq.dataRegresso && rq.dataRegresso !== rq.dataSaida ? Math.round((new Date(rq.dataRegresso+'T12:00:00') - new Date(rq.dataSaida+'T12:00:00')) / 86400000) + 1 : (parseInt(rq.dias) || 1)) : 0;
+      const totalDias = calcTotalDias(rq);
       const dn = rq ? diaDaViagem(rq, ds) : 0;
       const multiDia = totalDias > 1;
       let badgeLabel, badgeStyle;
@@ -1205,7 +1212,7 @@ async function saveManage() {
   saveReqs(reqs.filter(r => checked.has(r.id)));
   toDelete.forEach(r => pushReq({id: r.id}, 'deleteOne'));
   closeMo('mo-manage');
-  renderStats(); renderReqs(); updatePC(); refreshRN();
+  refreshMgr();
   toast('✔ ' + checked.size + ' pedido(s) mantido(s). ' + toDelete.length + ' eliminado(s).', 'success');
 }
 
@@ -1276,7 +1283,7 @@ function expPlanPdf() {
     const ds=wd.date.toISOString().slice(0,10);
     const rq=rqNoDia(rs,v.id,ds);
     const isInicio=rq&&rq.dataSaida===ds;
-    const totalDias=rq?(rq.dataRegresso&&rq.dataRegresso!==rq.dataSaida?Math.round((new Date(rq.dataRegresso+'T12:00:00')-new Date(rq.dataSaida+'T12:00:00'))/86400000)+1:(parseInt(rq.dias)||1)):0;
+    const totalDias=calcTotalDias(rq);
     const dn=rq?diaDaViagem(rq,ds):0;
     const estado=!rq?'Livre':totalDias>1?'Dia '+dn+'/'+totalDias:'Atribuído';
     const horario=!rq?'—':isInicio?rq.horaSaida+'–'+rq.horaRegresso:'↩ em viagem';
@@ -1289,7 +1296,7 @@ function expPlanPdf() {
       const ds=wd.date.toISOString().slice(0,10);
       const rq=rqNoDia(rs,v.id,ds);
       const isInicio=rq&&rq.dataSaida===ds;
-      const totalDias=rq?(rq.dataRegresso&&rq.dataRegresso!==rq.dataSaida?Math.round((new Date(rq.dataRegresso+'T12:00:00')-new Date(rq.dataSaida+'T12:00:00'))/86400000)+1:(parseInt(rq.dias)||1)):0;
+      const totalDias=calcTotalDias(rq);
       const dn=rq?diaDaViagem(rq,ds):0;
       const estado=!rq?'Sem motorista':totalDias>1?'Dia '+dn+'/'+totalDias:'Atribuído';
       const horario=!rq?'—':isInicio?rq.horaSaida+'–'+rq.horaRegresso:'↩ em viagem';
