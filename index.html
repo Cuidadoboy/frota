@@ -637,9 +637,14 @@ async function pullFromCloud() {
     if (Array.isArray(data) && data.length > 0) {
       const deleted = getDeleted();
       const cloudFiltered = data.filter(r => !deleted.has(r.id));
-      // Merge: preserve local-only records not yet propagated to cloud (pending push)
+      // Merge: only preserve very recent local records not yet in cloud (pending push ≤30min)
       const cloudIds = new Set(cloudFiltered.map(r => r.id));
-      const localOnly = getReqs().filter(r => !cloudIds.has(r.id) && !deleted.has(r.id));
+      const PENDING_MS = 30 * 60 * 1000;
+      const localOnly = getReqs().filter(r => {
+        if (cloudIds.has(r.id) || deleted.has(r.id)) return false;
+        const age = r.created ? Date.now() - new Date(r.created).getTime() : Infinity;
+        return age < PENDING_MS;
+      });
       const merged = [...cloudFiltered, ...localOnly];
       saveReqs(merged);
       const ts = new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -665,8 +670,11 @@ function setSyncBadge(state, label) {
 
 async function forcSync() {
   const data = await pullFromCloud();
-  if (data) { updatePC(); renderStats(); renderReqs(); toast('✔ ' + data.length + ' pedidos sincronizados!', 'success'); }
-  else toast('Dados locais: ' + getReqs().length + ' pedidos', '');
+  if (data) {
+    updatePC(); refreshRN(); renderStats(); renderReqs();
+    if (cv === 'plan') renderPlan();
+    toast('✔ ' + data.length + ' pedidos sincronizados!', 'success');
+  } else toast('Dados locais: ' + getReqs().length + ' pedidos', '');
 }
 
 // ── NÚMERO REQ ──
@@ -908,7 +916,9 @@ function saveEditReq() {
   pushReq(reqs[idx], 'updateOne');
   closeMo('mo-edit-req');
   searchMyReqs();
+  if (cv === 'plan') renderPlan();
   toast('✔ Pedido ' + id + ' actualizado com sucesso!', 'success');
+  setTimeout(autoSyncTick, 3000);
 }
 
 function clearByStatus(status) {
@@ -1415,6 +1425,7 @@ async function autoSyncTick() {
   if (data) {
     updatePC(); refreshRN();
     if (isMgr() && cv === 'requests') { renderStats(); renderReqs(); }
+    if (cv === 'plan') renderPlan();
   }
 }
 function startAutoSync() {
