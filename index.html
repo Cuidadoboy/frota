@@ -1084,7 +1084,10 @@ async function saveAssign() {
 const DPT = ['Segunda','Terça','Quarta','Quinta','Sexta'];
 function getMon(d) {
   const dt = new Date(d);
-  dt.setDate(dt.getDate() + (dt.getDay()===0 ? -6 : 1-dt.getDay()));
+  const day = dt.getDay();
+  if (day === 6) dt.setDate(dt.getDate() + 2);       // Sábado → próxima Segunda
+  else if (day === 0) dt.setDate(dt.getDate() + 1);  // Domingo → próxima Segunda
+  else dt.setDate(dt.getDate() + (1 - day));          // Seg-Sex → esta Segunda
   return dt;
 }
 // Encontra pedido activo num determinado dia (cobre viagens de vários dias)
