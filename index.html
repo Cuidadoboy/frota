@@ -705,13 +705,17 @@ async function pullFromCloud() {
       const cloudMap = new Map(data.filter(r => !deleted.has(r.id)).map(r => [r.id, r]));
       const local = getReqs().filter(r => !deleted.has(r.id));
       const localIds = new Set(local.map(r => r.id));
-      // Merge: ganha a versão com lastModified mais recente (local ou cloud)
+      // Merge: registos ainda na fila de envio → local sempre ganha
+      // Para o resto: local ganha se timestamp >= cloud (>= evita que
+      // timestamps iguais ou vazios devolvam uma versão cloud mais antiga)
+      const pendingIds = new Set(getQ().map(e => e.id));
       const merged = local.map(r => {
+        if (pendingIds.has(r.id)) return r;          // push ainda pendente → local
         if (!cloudMap.has(r.id)) return r;
         const cloud = cloudMap.get(r.id);
         const lTs = r.lastModified || r.created || '';
         const cTs = cloud.lastModified || cloud.created || '';
-        return lTs > cTs ? r : cloud;
+        return lTs >= cTs ? r : cloud;
       });
       cloudMap.forEach((r, id) => { if (!localIds.has(id)) merged.push(r); });
       saveReqs(merged);
