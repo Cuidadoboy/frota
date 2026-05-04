@@ -1108,7 +1108,8 @@ function renderPlan() {
   const mon = getMon(wi.value + 'T12:00:00');
   wi.value = mon.toISOString().slice(0,10);
   const fl = getFleet();
-  const rs = getReqs().filter(r => r.status === 'Aprovado');
+  // Mostra aprovados + pendentes com viatura atribuída
+  const rs = getReqs().filter(r => r.viaturaId && r.status !== 'Rejeitado');
   const wds = DPT.map((day, i) => { const d = new Date(mon); d.setDate(mon.getDate() + i); return {day, date: d}; });
   const withDriver = fl.filter(v => v.motorista);
   const noDriver = fl.filter(v => !v.motorista);
@@ -1125,10 +1126,13 @@ function renderPlan() {
       let badgeLabel, badgeStyle;
       if (!rq) {
         badgeLabel = 'Livre'; badgeStyle = 'background:#F0F7F0;color:#1E7D4A';
+      } else if (rq.status === 'Pendente') {
+        badgeLabel = multiDia ? '⏳ Dia ' + dn + '/' + totalDias : '⏳ Pendente';
+        badgeStyle = 'background:#FEF3C7;color:#92400E';
       } else if (multiDia) {
         badgeLabel = 'Dia ' + dn + ' / ' + totalDias; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
       } else {
-        badgeLabel = 'Atribuído'; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
+        badgeLabel = '✅ Aprovado'; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
       }
 
       const horario = !rq ? '—' : isInicio ? rq.horaSaida + '–' + rq.horaRegresso : '<em style="color:#94a3b8;font-style:normal">↩ em viagem</em>';
@@ -1163,10 +1167,13 @@ function renderPlan() {
       let badgeLabel, badgeStyle;
       if (!rq) {
         badgeLabel = 'Sem motorista'; badgeStyle = 'background:#f3f4f6;color:#9ca3af';
+      } else if (rq.status === 'Pendente') {
+        badgeLabel = multiDia ? '⏳ Dia ' + dn + '/' + totalDias : '⏳ Pendente';
+        badgeStyle = 'background:#FEF3C7;color:#92400E';
       } else if (multiDia) {
         badgeLabel = 'Dia ' + dn + ' / ' + totalDias; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
       } else {
-        badgeLabel = 'Atribuído'; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
+        badgeLabel = '✅ Aprovado'; badgeStyle = 'background:#E8F0FE;color:#1A56B0';
       }
       const horario = !rq ? '—' : isInicio ? rq.horaSaida + '–' + rq.horaRegresso : '<em style="color:#94a3b8;font-style:normal">↩ em viagem</em>';
       const pax = !rq ? '—' : isInicio ? (rq.pax || rq.nome || '—') : '·';
@@ -1186,6 +1193,28 @@ function renderPlan() {
     });
   });
   document.getElementById('plan-b').innerHTML = rows || '<tr><td colspan="10" style="text-align:center;padding:40px;color:var(--tm)">Nenhuma viatura configurada.</td></tr>';
+
+  // Secção de pedidos sem viatura atribuída (para o gestor actuar)
+  const semViatura = getReqs().filter(r => !r.viaturaId && r.status !== 'Rejeitado');
+  const wStart = wds[0].date.toISOString().slice(0,10);
+  const wEnd   = wds[4].date.toISOString().slice(0,10);
+  const semana = semViatura.filter(r => r.dataSaida >= wStart && r.dataSaida <= wEnd);
+  let svEl = document.getElementById('plan-sem-viatura');
+  if (!svEl) {
+    svEl = document.createElement('div');
+    svEl.id = 'plan-sem-viatura';
+    svEl.style.cssText = 'margin-top:18px;padding:14px 16px;background:#FFF7ED;border:1px solid #FED7AA;border-radius:10px;font-size:13px';
+    document.getElementById('plan-b').closest('.tw').after(svEl);
+  }
+  if (semana.length === 0) { svEl.style.display = 'none'; return; }
+  svEl.style.display = 'block';
+  svEl.innerHTML = '<div style="font-weight:700;color:#92400E;margin-bottom:8px">⚠ ' + semana.length + ' pedido(s) esta semana sem viatura atribuída</div>' +
+    semana.map(r => '<div style="display:flex;gap:12px;align-items:center;padding:6px 0;border-top:1px solid #FED7AA">' +
+      '<span class="badge" style="background:#FEF3C7;color:#92400E">' + r.status + '</span>' +
+      '<strong>' + r.id + '</strong> · ' + r.nome + ' → ' + r.destino +
+      ' <span style="color:#9ca3af">(' + r.dataSaida + ')</span>' +
+      '<button class="btn bsm bp" onclick="openAssign(\'' + r.id + '\')" style="margin-left:auto">🔧 Atribuir</button>' +
+    '</div>').join('');
 }
 function prevWk() { const wi=document.getElementById('wk'); const d=new Date(wi.value+'T12:00:00'); d.setDate(d.getDate()-7); wi.value=d.toISOString().slice(0,10); renderPlan(); }
 function nextWk() { const wi=document.getElementById('wk'); const d=new Date(wi.value+'T12:00:00'); d.setDate(d.getDate()+7); wi.value=d.toISOString().slice(0,10); renderPlan(); }
