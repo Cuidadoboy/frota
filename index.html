@@ -633,29 +633,28 @@ function calcTotalDias(rq) {
 function getQ()   { return LS.g('aea_push_q') || []; }
 function saveQ(q) { LS.s('aea_push_q', q); }
 
-// Disparar para GAS via três canais simultâneos
+// Disparar para GAS em cascata: GET cors → GET no-cors → iframe POST (nunca simultâneo)
 function fireToGAS(action, dataStr) {
   const url = GAS + '?action=' + action + '&data=' + encodeURIComponent(dataStr) + '&t=' + Date.now();
-  // Canal 1 — GET com CORS (mesmo modo do pullFromCloud — canal confirmado funcional)
-  fetch(url, { mode: 'cors' }).catch(() => {
-    // Fallback sem CORS
-    fetch(url, { mode: 'no-cors' }).catch(() => {});
-  });
-  // Canal 2 — POST via form em iframe (doPost directo, sem redirect)
-  try {
-    const ifr = document.createElement('iframe');
-    ifr.name = '_p' + Date.now();
-    ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
-    const frm = document.createElement('form');
-    frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
-    [['action', action], ['data', dataStr]].forEach(([n, v]) => {
-      const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
-      frm.appendChild(inp);
+  fetch(url, { mode: 'cors' })
+    .catch(() => fetch(url, { mode: 'no-cors' }))
+    .catch(() => {
+      // Último recurso: POST via iframe — só chega aqui se ambos os fetch falharam
+      try {
+        const ifr = document.createElement('iframe');
+        ifr.name = '_p' + Date.now();
+        ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
+        const frm = document.createElement('form');
+        frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
+        [['action', action], ['data', dataStr]].forEach(([n, v]) => {
+          const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
+          frm.appendChild(inp);
+        });
+        document.body.appendChild(ifr); document.body.appendChild(frm);
+        frm.submit();
+        setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
+      } catch(e) {}
     });
-    document.body.appendChild(ifr); document.body.appendChild(frm);
-    frm.submit();
-    setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
-  } catch(e) {}
 }
 
 // Enfileirar + disparar imediatamente
