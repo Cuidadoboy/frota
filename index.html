@@ -866,11 +866,11 @@ async function submitReq() {
   saveReqs(reqs);
   clearForm(); refreshRN(); updatePC();
   _submitting = false;
-  toast('✔ Pedido ' + r.id + ' enviado com sucesso!', 'success');
-  // Envio em background (não bloqueia a UI)
+  toast('Pedido ' + r.id + ' a enviar para a cloud...', '');
   setSyncBadge('syncing', '↑ A enviar...');
   pushReq(r, 'addOne');
-  setTimeout(autoSyncTick, 3000);
+  // Confirmar chegada à cloud — tenta 4 vezes com intervalo de 5s
+  confirmCloudArrival(r.id, 4, 5000);
   if (EMAILJS_PUBLIC_KEY !== 'SEU_PUBLIC_KEY') {
     emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
       to_email:   NOTIFY_EMAIL,
@@ -889,6 +889,41 @@ async function submitReq() {
       req_hora:   r.horaSaida + ' – ' + r.horaRegresso,
       req_dias:   r.dias
     }).catch(e => console.warn('Email não enviado:', e));
+  }
+}
+
+// Verificar se o pedido chegou à cloud; retentar envio se ainda não chegou
+async function confirmCloudArrival(reqId, attemptsLeft, delayMs) {
+  await new Promise(res => setTimeout(res, delayMs));
+  let cloudData;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+    const resp = await fetch(GAS + '?action=getAll&t=' + Date.now(), { mode: 'cors', signal: ctrl.signal });
+    clearTimeout(t);
+    cloudData = await resp.json();
+  } catch(e) { cloudData = null; }
+  if (Array.isArray(cloudData) && cloudData.find(r => r.id === reqId)) {
+    // Chegou — atualizar localStorage com dados da cloud e confirmar
+    saveReqs(getReqs().map(r => {
+      const c = cloudData.find(x => x.id === r.id);
+      return (c && (c.lastModified || '') >= (r.lastModified || '')) ? c : r;
+    }));
+    updatePC();
+    setSyncBadge('synced', '☁ Confirmado ' + new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit'}));
+    toast('✔ Pedido ' + reqId + ' confirmado na cloud!', 'success');
+    return;
+  }
+  if (attemptsLeft > 1) {
+    // Ainda não chegou — reenviar e tentar de novo
+    const q = getQ();
+    const pending = q.find(e => e.id === reqId && e.act === 'addOne');
+    if (pending) fireToGAS('addOne', pending.data);
+    confirmCloudArrival(reqId, attemptsLeft - 1, delayMs);
+  } else {
+    // Esgotou tentativas — avisar utilizador
+    setSyncBadge('error', '⚠ Pendente ' + reqId);
+    toast('⚠ Pedido ' + reqId + ' guardado localmente. Clique Sincronizar quando tiver rede.', 'error');
   }
 }
 
