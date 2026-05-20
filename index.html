@@ -634,31 +634,22 @@ function calcTotalDias(rq) {
 function getQ()   { return LS.g('aea_push_q') || []; }
 function saveQ(q) { LS.s('aea_push_q', q); }
 
-// Disparar para GAS: POST cors → POST no-cors → iframe POST (fallback)
+// Disparar para GAS via iframe POST (único método que funciona com os redirects do Google)
 function fireToGAS(action, dataStr) {
-  const body = 'action=' + encodeURIComponent(action) + '&data=' + encodeURIComponent(dataStr);
-  const iframePost = () => {
-    try {
-      const ifr = document.createElement('iframe');
-      ifr.name = '_p' + Date.now();
-      ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
-      const frm = document.createElement('form');
-      frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
-      [['action', action], ['data', dataStr]].forEach(([n, v]) => {
-        const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
-        frm.appendChild(inp);
-      });
-      document.body.appendChild(ifr); document.body.appendChild(frm);
-      frm.submit();
-      setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
-    } catch(e) {}
-  };
-  fetch(GAS, { method: 'POST', mode: 'cors', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
-    .then(r => r.json().then(j => { if (j && j.error) throw new Error(j.error); }))
-    .catch(() =>
-      fetch(GAS, { method: 'POST', mode: 'no-cors', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
-        .catch(iframePost)
-    );
+  try {
+    const ifr = document.createElement('iframe');
+    ifr.name = '_p' + Date.now();
+    ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
+    const frm = document.createElement('form');
+    frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
+    [['action', action], ['data', dataStr]].forEach(([n, v]) => {
+      const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
+      frm.appendChild(inp);
+    });
+    document.body.appendChild(ifr); document.body.appendChild(frm);
+    frm.submit();
+    setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
+  } catch(e) { console.warn('fireToGAS falhou:', e.message); }
 }
 
 // Enfileirar + disparar imediatamente
