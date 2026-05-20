@@ -233,6 +233,7 @@ tr:hover td{background:var(--ol)}
           <option value="">Todos</option><option value="Pendente">Pendentes</option><option value="Aprovado">Aprovados</option><option value="Rejeitado">Rejeitados</option>
         </select>
         <button class="btn bsm bs" onclick="forcSync()">↓ Sincronizar</button>
+        <button class="btn bsm bs" onclick="cleanCloudDupes()" title="Elimina linhas duplicadas na planilha">🔧 Reparar</button>
         <button class="btn bsm bs" onclick="expXls()">📊 Excel</button>
         <button class="btn bsm bs" onclick="expPdf()">📄 PDF</button>
         <button class="btn bsm bd" onclick="clearByStatus('Aprovado')" title="Apagar todos os aprovados">🗑 Limpar Aprovados</button>
@@ -633,28 +634,31 @@ function calcTotalDias(rq) {
 function getQ()   { return LS.g('aea_push_q') || []; }
 function saveQ(q) { LS.s('aea_push_q', q); }
 
-// Disparar para GAS em cascata: GET cors → GET no-cors → iframe POST (nunca simultâneo)
+// Disparar para GAS: POST cors → POST no-cors → iframe POST (fallback)
 function fireToGAS(action, dataStr) {
-  const url = GAS + '?action=' + action + '&data=' + encodeURIComponent(dataStr) + '&t=' + Date.now();
-  fetch(url, { mode: 'cors' })
-    .catch(() => fetch(url, { mode: 'no-cors' }))
-    .catch(() => {
-      // Último recurso: POST via iframe — só chega aqui se ambos os fetch falharam
-      try {
-        const ifr = document.createElement('iframe');
-        ifr.name = '_p' + Date.now();
-        ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
-        const frm = document.createElement('form');
-        frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
-        [['action', action], ['data', dataStr]].forEach(([n, v]) => {
-          const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
-          frm.appendChild(inp);
-        });
-        document.body.appendChild(ifr); document.body.appendChild(frm);
-        frm.submit();
-        setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
-      } catch(e) {}
-    });
+  const body = 'action=' + encodeURIComponent(action) + '&data=' + encodeURIComponent(dataStr);
+  const iframePost = () => {
+    try {
+      const ifr = document.createElement('iframe');
+      ifr.name = '_p' + Date.now();
+      ifr.style.cssText = 'display:none;position:fixed;width:0;height:0;border:none';
+      const frm = document.createElement('form');
+      frm.method = 'POST'; frm.action = GAS; frm.target = ifr.name; frm.style.display = 'none';
+      [['action', action], ['data', dataStr]].forEach(([n, v]) => {
+        const inp = document.createElement('input'); inp.type = 'hidden'; inp.name = n; inp.value = v;
+        frm.appendChild(inp);
+      });
+      document.body.appendChild(ifr); document.body.appendChild(frm);
+      frm.submit();
+      setTimeout(() => { try { frm.remove(); ifr.remove(); } catch(e) {} }, 12000);
+    } catch(e) {}
+  };
+  fetch(GAS, { method: 'POST', mode: 'cors', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+    .then(r => r.json().then(j => { if (j && j.error) throw new Error(j.error); }))
+    .catch(() =>
+      fetch(GAS, { method: 'POST', mode: 'no-cors', body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+        .catch(iframePost)
+    );
 }
 
 // Enfileirar + disparar imediatamente
@@ -799,6 +803,34 @@ async function forcSync() {
     if (cv === 'plan') renderPlan();
     toast('✔ ' + deduped.length + ' pedidos sincronizados!', 'success');
   } else toast('Dados locais: ' + getReqs().length + ' pedidos', '');
+}
+
+async function cleanCloudDupes() {
+  if (!isMgr()) { toast('Acesso restrito.', 'error'); return; }
+  toast('A verificar duplicados...', '');
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  let data;
+  try {
+    const resp = await fetch(GAS + '?action=getAll&t=' + Date.now(), { mode: 'cors', signal: ctrl.signal });
+    clearTimeout(timer);
+    data = await resp.json();
+  } catch(e) { clearTimeout(timer); toast('Erro ao obter dados: ' + e.message, 'error'); return; }
+  if (!Array.isArray(data)) { toast('Resposta inválida do servidor.', 'error'); return; }
+  const groups = {};
+  data.forEach(r => { if (!groups[r.id]) groups[r.id] = []; groups[r.id].push(r); });
+  const dupeIds = Object.keys(groups).filter(id => groups[id].length > 1);
+  if (!dupeIds.length) { toast('Sem duplicados encontrados.', 'success'); return; }
+  let fixed = 0;
+  dupeIds.forEach(id => {
+    const recs = groups[id];
+    const keep = recs.find(r => r.status !== 'Pendente') || recs[recs.length - 1];
+    // deleteOne + addOne para substituir todas as cópias por uma versão limpa
+    pushReq({ id }, 'deleteOne');
+    setTimeout(() => { pushReq(keep, 'addOne'); }, 300);
+    fixed++;
+  });
+  toast('A reparar ' + fixed + ' duplicado(s)... aguarde e clique Sincronizar.', 'success');
 }
 
 // ── NÚMERO REQ ──
