@@ -695,13 +695,28 @@ function flushQueue(cloudData) {
 async function pullFromCloud() {
   setSyncBadge('syncing', 'A sincronizar...');
   try {
-    const resp = await fetch(GAS + '?action=getAll&t=' + Date.now(), { mode: 'cors' });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 20000);
+    let resp;
+    try {
+      resp = await fetch(GAS + '?action=getAll&t=' + Date.now(), { mode: 'cors', signal: ctrl.signal });
+    } finally {
+      clearTimeout(timer);
+    }
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
     const ts = () => new Date().toLocaleTimeString('pt',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
     if (Array.isArray(data) && data.length > 0) {
       const deleted = getDeleted();
-      const cloudMap = new Map(data.filter(r => !deleted.has(r.id)).map(r => [r.id, r]));
+      // Deduplica por ID mantendo o registo com lastModified mais recente
+      const cloudMap = new Map();
+      data.filter(r => !deleted.has(r.id)).forEach(r => {
+        if (!cloudMap.has(r.id)) { cloudMap.set(r.id, r); return; }
+        const ex = cloudMap.get(r.id);
+        const exTs = ex.lastModified || ex.created || '';
+        const rTs  = r.lastModified  || r.created  || '';
+        if (rTs >= exTs) cloudMap.set(r.id, r);
+      });
       const local = getReqs().filter(r => !deleted.has(r.id));
       const localIds = new Set(local.map(r => r.id));
       // Merge: registos ainda na fila de envio → local sempre ganha
@@ -727,8 +742,9 @@ async function pullFromCloud() {
     setSyncBadge(qLen > 0 ? 'syncing' : 'synced', '☁ ' + getReqs().length + (qLen > 0 ? ' ↑' + qLen : '') + ' · ' + ts());
     return null;
   } catch(e) {
-    console.warn('pull:', e.message);
-    setSyncBadge('error', '💾 local · ' + getReqs().length);
+    const reason = e.name === 'AbortError' ? 'timeout' : e.message;
+    console.warn('pull:', reason);
+    setSyncBadge('error', '💾 local · ' + getReqs().length + ' (' + reason + ')');
     return null;
   }
 }
@@ -743,9 +759,23 @@ function setSyncBadge(state, label) {
 async function forcSync() {
   const data = await pullFromCloud();
   if (data) {
+    // Remove duplicados locais após sincronização
+    const seen = new Map();
+    data.forEach(r => {
+      if (!seen.has(r.id)) { seen.set(r.id, r); return; }
+      const ex = seen.get(r.id);
+      const exTs = ex.lastModified || ex.created || '';
+      const rTs  = r.lastModified  || r.created  || '';
+      if (rTs >= exTs) seen.set(r.id, r);
+    });
+    const deduped = Array.from(seen.values());
+    if (deduped.length < data.length) {
+      saveReqs(deduped);
+      console.info('Removidos ' + (data.length - deduped.length) + ' duplicados locais.');
+    }
     refreshMgr();
     if (cv === 'plan') renderPlan();
-    toast('✔ ' + data.length + ' pedidos sincronizados!', 'success');
+    toast('✔ ' + deduped.length + ' pedidos sincronizados!', 'success');
   } else toast('Dados locais: ' + getReqs().length + ' pedidos', '');
 }
 
