@@ -661,22 +661,44 @@ function fireToGAS(action, dataStr) {
 function pushReq(req, action) {
   const act = action || 'addOne';
   const dataStr = JSON.stringify(req);
-  // Guardar na fila (substitui entrada anterior para o mesmo id+action)
-  const q = getQ().filter(e => !(e.id === req.id && e.act === act));
-  q.push({ id: req.id, act, data: dataStr, ts: Date.now() });
-  saveQ(q);
-  fireToGAS(act, dataStr);
+  if (act === 'updateOne') {
+    // Substitui por deleteOne + addOne para evitar linhas duplicadas no GAS
+    const delStr = JSON.stringify({ id: req.id });
+    const q = getQ()
+      .filter(e => !(e.id === req.id && (e.act === 'updateOne' || e.act === 'deleteOne' || e.act === 'addOne')));
+    q.push({ id: req.id, act: 'deleteOne', data: delStr, ts: Date.now() });
+    q.push({ id: req.id, act: 'addOne',    data: dataStr,  ts: Date.now() + 1 });
+    saveQ(q);
+    fireToGAS('deleteOne', delStr);
+    fireToGAS('addOne', dataStr);
+  } else {
+    const q = getQ().filter(e => !(e.id === req.id && e.act === act));
+    q.push({ id: req.id, act, data: dataStr, ts: Date.now() });
+    saveQ(q);
+    fireToGAS(act, dataStr);
+  }
 }
 
 // Verificar o que chegou à cloud; retentar o que falta; retorna nº pendentes
 function flushQueue(cloudData) {
   const cloudMap = new Map((cloudData || []).map(r => [r.id, r]));
+  const q = getQ();
+  // Pré-calcular IDs cujo addOne já chegou à cloud (confirma deleteOne par)
+  const addConfirmed = new Set();
+  q.forEach(e => {
+    if (e.act !== 'addOne') return;
+    const cloudRec = cloudMap.get(e.id);
+    if (!cloudRec) return;
+    const local = JSON.parse(e.data);
+    if (!local.lastModified || cloudRec.lastModified === local.lastModified) addConfirmed.add(e.id);
+  });
   const remaining = [];
-  getQ().forEach(e => {
+  q.forEach(e => {
     const cloudRec = cloudMap.get(e.id);
     let confirmed;
     if (e.act === 'deleteOne') {
-      confirmed = !cloudRec;
+      // Confirmado se: não existe na cloud, OU o addOne par já chegou
+      confirmed = !cloudRec || addConfirmed.has(e.id);
     } else {
       if (!cloudRec) { confirmed = false; }
       else {
@@ -684,8 +706,8 @@ function flushQueue(cloudData) {
         confirmed = !local.lastModified || cloudRec.lastModified === local.lastModified;
       }
     }
-    if (confirmed) return; // chegou — sai da fila
-    fireToGAS(e.act, e.data); // ainda não chegou — retentar
+    if (confirmed) return;
+    fireToGAS(e.act, e.data);
     remaining.push(e);
   });
   saveQ(remaining);
