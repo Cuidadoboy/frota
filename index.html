@@ -233,6 +233,7 @@ tr:hover td{background:var(--ol)}
           <option value="">Todos</option><option value="Pendente">Pendentes</option><option value="Aprovado">Aprovados</option><option value="Rejeitado">Rejeitados</option>
         </select>
         <button class="btn bsm bs" onclick="forcSync()">↓ Sincronizar</button>
+        <button class="btn bsm bs" onclick="openQueuePanel()" title="Ver e reenviar pedidos pendentes de sincronização">📋 Fila</button>
         <button class="btn bsm bs" onclick="cleanCloudDupes()" title="Elimina linhas duplicadas na planilha">🔧 Reparar</button>
         <button class="btn bsm bs" onclick="expXls()">📊 Excel</button>
         <button class="btn bsm bs" onclick="expPdf()">📄 PDF</button>
@@ -358,6 +359,19 @@ tr:hover td{background:var(--ol)}
     <div class="br_">
       <button class="btn bs" onclick="closeMo('mo-assign')">Cancelar</button>
       <button class="btn bgr" onclick="saveAssign()">✔ Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="mo" id="mo-queue">
+  <div class="mb" style="max-width:660px">
+    <button class="mc" onclick="closeMo('mo-queue')">✕</button>
+    <div class="mt_">📋 Fila de Sincronização Pendente</div>
+    <p style="font-size:12px;color:var(--od);margin:0 0 14px">Pedidos guardados neste dispositivo ainda não enviados para a cloud.</p>
+    <div id="queue-items"></div>
+    <div class="br_" style="margin-top:16px">
+      <button class="btn bs" onclick="closeMo('mo-queue')">Fechar</button>
+      <button class="btn bgr" id="queue-resend-btn" onclick="resubmitQueue()">🔄 Reenviar Todos</button>
     </div>
   </div>
 </div>
@@ -681,11 +695,25 @@ function flushQueue(cloudData) {
     if (!local.lastModified || !cloudRec.lastModified || cloudRec.lastModified >= local.lastModified) addConfirmed.add(e.id);
   });
   const remaining = [];
+  const extraItems = []; // itens com novo ID após resolução de colisão
   q.forEach(e => {
     const cloudRec = cloudMap.get(e.id);
+    // Detectar colisão de ID: addOne mas cloud tem registo com created diferente (outro dispositivo)
+    if (e.act === 'addOne' && cloudRec) {
+      const local = JSON.parse(e.data);
+      if (local.created && cloudRec.created && cloudRec.created !== local.created) {
+        const newId = nextRN();
+        const updated = { ...local, id: newId, lastModified: new Date().toISOString() };
+        const reqs = getReqs(); const idx = reqs.findIndex(r => r.id === local.id);
+        if (idx >= 0) { reqs[idx] = updated; saveReqs(reqs); }
+        extraItems.push({ id: newId, act: 'addOne', data: JSON.stringify(updated), ts: Date.now() });
+        fireToGAS('addOne', JSON.stringify(updated));
+        console.info('[frota] Colisão resolvida: ' + local.id + ' → ' + newId);
+        return; // Remove item antigo; novo entra via extraItems
+      }
+    }
     let confirmed;
     if (e.act === 'deleteOne') {
-      // Confirmado se: não existe na cloud, OU o addOne par já chegou
       confirmed = !cloudRec || addConfirmed.has(e.id);
     } else {
       if (!cloudRec) { confirmed = false; }
@@ -698,8 +726,9 @@ function flushQueue(cloudData) {
     fireToGAS(e.act, e.data);
     remaining.push(e);
   });
-  saveQ(remaining);
-  return remaining.length;
+  const finalQueue = [...remaining, ...extraItems];
+  saveQ(finalQueue);
+  return finalQueue.length;
 }
 
 async function pullFromCloud() {
@@ -817,23 +846,110 @@ async function cleanCloudDupes() {
   toast('A reparar ' + fixed + ' duplicado(s)... aguarde e clique Sincronizar.', 'success');
 }
 
+// ── TOKEN DE DISPOSITIVO (ID único por aparelho, evita colisões offline) ──
+function getDeviceToken() {
+  let t = LS.g('aea_dev_tok');
+  if (!t) { t = Math.random().toString(36).slice(2,6).toUpperCase(); LS.s('aea_dev_tok', t); }
+  return t;
+}
+
 // ── NÚMERO REQ ──
 function nextRN() {
   const yr = new Date().getFullYear();
   const pfx = 'REQ-' + yr + '-';
+  const tok = getDeviceToken();
   const deleted = getDeleted();
-  // Inclui IDs da fila pendente para evitar colisões entre dispositivos offline
   const queuedIds = new Set(getQ().map(e => e.id).filter(Boolean));
-  const used = new Set([
+  const allIds = [
     ...getReqs().filter(r => r.id && r.id.startsWith(pfx)).map(r => r.id),
     ...[...deleted].filter(id => id && id.startsWith(pfx)),
     ...[...queuedIds].filter(id => id.startsWith(pfx))
-  ]);
-  let n = 1, id;
-  do { id = pfx + String(n++).padStart(3,'0'); } while (used.has(id));
-  return id;
+  ];
+  // Extrai o número sequencial de IDs com ou sem token (ex: REQ-2026-007 e REQ-2026-007-XYZW → 7)
+  const usedNums = new Set(allIds.map(id => { const m = id.match(/^REQ-\d{4}-(\d{3})/); return m ? +m[1] : 0; }));
+  let n = 1;
+  while (usedNums.has(n)) n++;
+  return pfx + String(n).padStart(3,'0') + '-' + tok;
 }
 function refreshRN() { document.getElementById('rn').textContent = nextRN(); }
+
+// ── PAINEL DE FILA PENDENTE ──
+function openQueuePanel() {
+  const q = getQ();
+  const adds = q.filter(e => e.act === 'addOne');
+  const others = q.filter(e => e.act !== 'addOne');
+  const el = document.getElementById('queue-items');
+  if (!q.length) {
+    el.innerHTML = '<p style="text-align:center;padding:24px;color:var(--od);font-size:13px">✔ Fila vazia — tudo sincronizado.</p>';
+    document.getElementById('queue-resend-btn').style.display = 'none';
+  } else {
+    document.getElementById('queue-resend-btn').style.display = '';
+    let html = '';
+    if (adds.length) {
+      html += '<div style="font-size:11px;font-weight:600;color:var(--od);margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">Novos pedidos não enviados (' + adds.length + ')</div>';
+      html += adds.map(e => {
+        const r = JSON.parse(e.data);
+        return '<div style="border:1px solid var(--br);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:12.5px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">' +
+            '<strong style="color:var(--pr)">' + r.id + '</strong>' +
+            '<span style="background:#fff3e0;color:#e65100;padding:2px 8px;border-radius:6px;font-size:11px">⏳ Por enviar</span>' +
+          '</div>' +
+          '<div><b>Requisitante:</b> ' + (r.nome||'—') + ' · ' + (r.dep||'—') + '</div>' +
+          '<div><b>Destino:</b> ' + (r.destino||'—') + ' · ' + (r.dataSaida||'—') + '</div>' +
+          '<div><b>Motivo:</b> ' + (r.motivo||'—') + '</div>' +
+          '<div style="color:var(--od);font-size:11px;margin-top:4px">Submetido: ' + new Date(r.created).toLocaleString('pt') + '</div>' +
+        '</div>';
+      }).join('');
+    }
+    if (others.length) {
+      html += '<div style="font-size:11px;font-weight:600;color:var(--od);margin:12px 0 8px;text-transform:uppercase;letter-spacing:.5px">Actualizações pendentes (' + others.length + ')</div>';
+      html += others.map(e => '<div style="border:1px solid var(--br);border-radius:8px;padding:10px 14px;margin-bottom:6px;font-size:12px;color:var(--od)"><b>' + e.id + '</b> · ' + (e.act === 'deleteOne' ? '🗑 Eliminar' : '✏ Actualizar') + '</div>').join('');
+    }
+    el.innerHTML = html;
+  }
+  document.getElementById('mo-queue').classList.add('open');
+}
+
+async function resubmitQueue() {
+  const btn = document.getElementById('queue-resend-btn');
+  btn.disabled = true; btn.textContent = 'A verificar...';
+  // Obter dados da cloud para detectar colisões de ID
+  let cloudData = null;
+  try {
+    const ctrl = new AbortController();
+    setTimeout(() => ctrl.abort(), 15000);
+    const resp = await fetch(GAS + '?action=getAll&t=' + Date.now(), { mode: 'cors', signal: ctrl.signal });
+    cloudData = await resp.json();
+  } catch(e) { cloudData = null; }
+  const cloudMap = cloudData ? new Map(cloudData.map(r => [r.id, r])) : new Map();
+  const q = getQ();
+  const newQueue = [];
+  let collisions = 0, resent = 0;
+  q.forEach(e => {
+    if (e.act !== 'addOne') { fireToGAS(e.act, e.data); newQueue.push(e); return; }
+    const local = JSON.parse(e.data);
+    const cloudRec = cloudMap.get(e.id);
+    if (cloudRec && local.created && cloudRec.created !== local.created) {
+      // Colisão: cloud tem registo diferente com o mesmo ID → reatribuir novo ID
+      const newId = nextRN();
+      const updated = { ...local, id: newId, lastModified: new Date().toISOString() };
+      const reqs = getReqs(); const idx = reqs.findIndex(r => r.id === local.id);
+      if (idx >= 0) { reqs[idx] = updated; saveReqs(reqs); }
+      newQueue.push({ id: newId, act: 'addOne', data: JSON.stringify(updated), ts: Date.now() });
+      fireToGAS('addOne', JSON.stringify(updated));
+      collisions++;
+    } else {
+      fireToGAS(e.act, e.data);
+      newQueue.push(e);
+      resent++;
+    }
+  });
+  saveQ(newQueue);
+  btn.disabled = false; btn.textContent = '🔄 Reenviar Todos';
+  const msg = (collisions ? collisions + ' colisão(ões) corrigida(s). ' : '') + (resent + collisions) + ' pedido(s) reenviado(s). Clique Sincronizar para confirmar.';
+  toast('✔ ' + msg, 'success');
+  setTimeout(openQueuePanel, 600);
+}
 
 // ── FORMULÁRIO ──
 let _submitting = false;
